@@ -18,6 +18,10 @@
 # along with ssNake. If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
+import loadIsotopes
+
+ISOTOPES = loadIsotopes.getIsotopes('IsotopeProperties')
+GAMMASCALE = 42.576e6/100
 
 class sample():
     def __init__(self):
@@ -33,7 +37,7 @@ class sample():
                    values are used. Within the tuple, None can be used to default to master value.
         The relaxation times are optional, as the can alos be input for the whole molecule
         as master values. 
-        Jmatrix: 2D array holding the J value between nuclei in Hz.
+        Jmatrix: 2D array holding the J value between nuclei in Hz. (Symmatric)
         amp: amplitude (concentration) of the molecule
         T1: float, master T1 value is seconds
         T2: float, master T2 value is seconds
@@ -74,13 +78,62 @@ class sample():
     def removeMolecule(self,index):
         self.moleculeList.pop(index)
 
-    def expandSystems(self,B0,decouple = None):
+    def expandSystems(self,B0,observe,decouple = None):
         """
         Convert shift to Hz (using observe nucleus already?)
         Split J coupling elements, using decoupling scaling if used.
         Calc intensity using B0 effect, etc.
+
+        Each spin has a T1, T2, shift, T2prime
         """
-        pass
+
+        # Scale the J matrix before, with the decoupling
+        # Pre-calc each spins splitting pattern (before J input)
+
+
+
+        Expanded = []
+        for system in self.moleculeList:
+            spins = system['spins']
+
+            # Splitting patterns
+            FreqSplits = []
+            IntSplits = []
+            for spin in spins:
+                Multi = spin[2]
+                quant = ISOTOPES[spin[0]][0]
+                levels = int(2 * quant + 1)
+                Inten = np.ones([levels])/levels
+                Split = np.arange(levels) - quant
+                IntenFull = np.array(Inten)
+                SplitFull = np.array(Split)
+                for _ in range(Multi-1):
+                    IntenFull = np.kron(IntenFull,Inten)
+                    SplitFull = (SplitFull[:, None] + Split[None, :]).ravel() # np.add.outer(SplitFull,Split)[0]
+                
+                ####
+                #Now collect unique shifts, and bundle intensities
+                ####
+
+            J = system['J']
+            for pos, spin in enumerate(spins):
+                if spin[0] == observe:
+                    Jlist = J[pos,:]
+                    Shift = spin[1]
+                    Multi = spin[2]
+                    freqList = np.array([Shift * B0 * ISOTOPES[observe][1] * GAMMASCALE * 1e-6]) # Freq of spin in Hz
+                    intList = np.array([Multi])
+                    for pos2, Jval in enumerate(Jlist):
+                        if pos2 != pos and Jval != 0:
+                            Jmatr = np.array([1/2,-1/2]) * Jval
+                            IntMatr = np.array([0.5,0.5])
+                            freqList = np.add.outer(freqList,Jmatr)[0]
+                            intList = np.kron(intList,IntMatr)
+                    
+                    for place, _ in enumerate(freqList):
+                        Expanded.append([freqList[place],intList[place],spin[3],spin[4],spin[5]])
+
+            
 
     def expandBroadening(self,nsteps=10):
         """
@@ -95,7 +148,8 @@ if __name__ == '__main__':
 
     # Some test code
     tube = sample()
-    tube.addMolecule([('1H',0,1),('1H',1,1)],np.zeros([2,2]),1,3,1,1)
+    tube.addMolecule([('1H',0,2),('1H',1,2)],np.array([[0,10],[10,0]]),1,3,1,1)
+    tube.expandSystems(7,'1H')
 
     
 
