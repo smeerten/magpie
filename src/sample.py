@@ -23,6 +23,35 @@ import loadIsotopes
 ISOTOPES = loadIsotopes.getIsotopes('IsotopeProperties')
 GAMMASCALE = 42.576e6/100
 
+
+def getSplittingPattern(I,Multi):
+    Kernel = np.ones((int(2*I+1)))
+    IntenFull = [1]
+    for _ in range(Multi):
+        IntenFull = np.convolve(IntenFull, Kernel)
+    IntenFull /= np.sum(IntenFull) 
+    Split = np.arange(len(IntenFull)) - len(IntenFull)/2 + 0.5
+    return Split, IntenFull
+
+def kronAdd(A,B):
+    """
+    Performs a Kronecker addition.
+
+    Parameters
+    -------
+    A: array_like
+    B: array_like
+
+    Returns
+    -------
+    array_like: result of the Kronecker addition
+
+    """
+    Final = np.array([])
+    for val in A:
+        Final = np.append(Final,B + val)
+    return Final
+
 class sample():
     def __init__(self):
         self.moleculeList = []
@@ -35,8 +64,11 @@ class sample():
             multi: int, multiplicity of the nucleus (e.g. 3 for a CH3 group)
             relax: list of [T1,T2,T2prime] in s. Is optional. If not given, molecule master
                    values are used. Within the tuple, None can be used to default to master value.
-        The relaxation times are optional, as the can alos be input for the whole molecule
+        The relaxation times are optional, as the can also be input for the whole molecule
         as master values. 
+
+        Parameters
+        ----------
         Jmatrix: 2D array holding the J value between nuclei in Hz. (Symmatric)
         amp: amplitude (concentration) of the molecule
         T1: float, master T1 value is seconds
@@ -45,8 +77,6 @@ class sample():
 
         Note that for every spin, all three relaxation values need to be known one way or the other.
         A message in printed in case there are missing values.
-
-
         """
         if Jmatrix.ndim != 2 or Jmatrix.shape[0] != Jmatrix.shape[1] or Jmatrix.shape[0] != len(nucl):
             print('Jmatrix dimensions not correct')
@@ -73,6 +103,7 @@ class sample():
             spins.append([Type,shift,multi,relax[0],relax[1],relax[2]])
         molecule['spins'] = spins
         molecule['J'] = Jmatrix
+        molecule['amp'] = amp
         self.moleculeList.append(molecule)
 
     def removeMolecule(self,index):
@@ -80,42 +111,49 @@ class sample():
 
     def expandSystems(self,B0,observe,decouple = None):
         """
-        Convert shift to Hz (using observe nucleus already?)
-        Split J coupling elements, using decoupling scaling if used.
-        Calc intensity using B0 effect, etc.
+        Expands the spin systems in individual 'lines', with frequency, intensity,
+        relaxation values.
+        Only spins relating to the Observed nucleus are returned.
 
-        Each spin has a T1, T2, shift, T2prime
+        Parameters
+        ----------
+        B0: float, magnetic field strength in Tesla
+        observe: string, observe nucleus
+        decouple [optional]: nucleus, offset [Hz] and CW decouple power [Hz]
+
+        Returns
+        -------
+        List of list with the individual 'lines', having:
+            [Frequency, Intensity, T1, T2, T2prime]
         """
 
         # Scale the J matrix before, with the decoupling
-        # Pre-calc each spins splitting pattern (before J input)
-
-
 
         Expanded = []
         for system in self.moleculeList:
             spins = system['spins']
+            concentration = system['amp']
+            J = system['J']
 
             # Splitting patterns
             FreqSplits = []
             IntSplits = []
             for spin in spins:
                 Multi = spin[2]
-                quant = ISOTOPES[spin[0]][0]
-                levels = int(2 * quant + 1)
-                Inten = np.ones([levels])/levels
-                Split = np.arange(levels) - quant
-                IntenFull = np.array(Inten)
-                SplitFull = np.array(Split)
-                for _ in range(Multi-1):
-                    IntenFull = np.kron(IntenFull,Inten)
-                    SplitFull = (SplitFull[:, None] + Split[None, :]).ravel() # np.add.outer(SplitFull,Split)[0]
-                
-                ####
-                #Now collect unique shifts, and bundle intensities
-                ####
+                I = ISOTOPES[spin[0]][0]
+                Split, IntenFull = getSplittingPattern(I,Multi)
+                FreqSplits.append(Split)
+                IntSplits.append(IntenFull)
 
-            J = system['J']
+            # Jscaling
+            if decouple is not None:
+                """
+                Jscaling is cos(theta)
+                with theta = atan(B1/offset)
+                According to Ernst, Bodenhausen, Wokaun. p 235-236
+                """
+                pass
+               
             for pos, spin in enumerate(spins):
                 if spin[0] == observe:
                     Jlist = J[pos,:]
@@ -125,13 +163,14 @@ class sample():
                     intList = np.array([Multi])
                     for pos2, Jval in enumerate(Jlist):
                         if pos2 != pos and Jval != 0:
-                            Jmatr = np.array([1/2,-1/2]) * Jval
-                            IntMatr = np.array([0.5,0.5])
-                            freqList = np.add.outer(freqList,Jmatr)[0]
+                            Jmatr = FreqSplits[pos2] * Jval
+                            IntMatr = IntSplits[pos2]
+                            freqList = kronAdd(freqList,Jmatr)
                             intList = np.kron(intList,IntMatr)
                     
                     for place, _ in enumerate(freqList):
-                        Expanded.append([freqList[place],intList[place],spin[3],spin[4],spin[5]])
+                        Expanded.append([freqList[place],intList[place] * concentration,spin[3],spin[4],spin[5]])
+        return Expanded
 
             
 
@@ -148,7 +187,7 @@ if __name__ == '__main__':
 
     # Some test code
     tube = sample()
-    tube.addMolecule([('1H',0,2),('1H',1,2)],np.array([[0,10],[10,0]]),1,3,1,1)
+    tube.addMolecule([('1H',0,2),('1H',1,2),('1H',2,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]),1,3,1,1)
     tube.expandSystems(7,'1H')
 
     
