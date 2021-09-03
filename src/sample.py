@@ -23,7 +23,6 @@ import loadIsotopes
 ISOTOPES = loadIsotopes.getIsotopes('IsotopeProperties')
 GAMMASCALE = 42.576e6/100
 
-
 def getSplittingPattern(I,Multi):
     Kernel = np.ones((int(2*I+1)))
     IntenFull = [1]
@@ -45,12 +44,41 @@ def kronAdd(A,B):
     Returns
     -------
     array_like: result of the Kronecker addition
-
     """
     Final = np.array([])
     for val in A:
         Final = np.append(Final,B + val)
     return Final
+
+def scaleScalarCouplings(J,spins,decouple,B0):
+    """
+    Applies J coupling scaling based on decoupling settings.
+    Only spins with the same type as the decoupling are affected.
+
+    Jscaling is cos(theta)
+    with theta = atan(B1/offset)
+    According to Ernst, Bodenhausen, Wokaun. p 235-236.
+
+    Parameters
+    -------
+    J: 2D array, J coupling matrix
+    spins: list of list, for each spin [Nucleus,shift,multi,T1,T2,T2prime]
+    decouple: list, decoupling settings [Nucleus,offset [Hz],strength [Hz]]
+    B0: float, magnetic field strength [T]
+
+    Returns
+    -------
+    2D array: scaled J matrix
+    """
+    for pos, spin in enumerate(spins):
+        if spin[0] == decouple[0]: # If nucleus is decoupled
+            shift = spin[1] * B0 * ISOTOPES[spin[0]][1] * GAMMASCALE * 1e-6
+            offset = decouple[1] - shift
+            scale = np.cos(np.arctan(decouple[2]/offset))
+            # Scale row and column of Jmatrix with this value
+            J[pos,:] = J[pos,:] * scale
+            J[:,pos] = J[pos,:] * scale
+    return J
 
 class sample():
     def __init__(self):
@@ -81,6 +109,8 @@ class sample():
         if Jmatrix.ndim != 2 or Jmatrix.shape[0] != Jmatrix.shape[1] or Jmatrix.shape[0] != len(nucl):
             print('Jmatrix dimensions not correct')
             return
+
+        Jmatrix = np.array(Jmatrix,dtype=float)
 
         molecule = dict()
         # Create a tuple for each nucleus
@@ -147,12 +177,7 @@ class sample():
 
             # Jscaling
             if decouple is not None:
-                """
-                Jscaling is cos(theta)
-                with theta = atan(B1/offset)
-                According to Ernst, Bodenhausen, Wokaun. p 235-236
-                """
-                pass
+                J = scaleScalarCouplings(J,spins,decouple,B0)
                
             for pos, spin in enumerate(spins):
                 if spin[0] == observe:
@@ -170,9 +195,9 @@ class sample():
                     
                     for place, _ in enumerate(freqList):
                         Expanded.append([freqList[place],intList[place] * concentration,spin[3],spin[4],spin[5]])
+        print([x[0] for x in Expanded])
         return Expanded
 
-            
 
     def expandBroadening(self,nsteps=10):
         """
@@ -187,8 +212,8 @@ if __name__ == '__main__':
 
     # Some test code
     tube = sample()
-    tube.addMolecule([('1H',0,2),('1H',1,2),('1H',2,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]),1,3,1,1)
-    tube.expandSystems(7,'1H')
+    tube.addMolecule([('1H',0,1),('1H',1,1),('13C',1,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]),1,3,1,1)
+    tube.expandSystems(7,'1H',['13C',0,10000])
 
     
 
