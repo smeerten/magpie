@@ -194,9 +194,7 @@ class sample():
                             intList = np.kron(intList,IntMatr)
                     
                     for place, _ in enumerate(freqList):
-                        Expanded.append([freqList[place],intList[place] * concentration,spin[3],spin[4],spin[5]])
-        print([x[0] for x in Expanded])
-        return Expanded
+                        yield [freqList[place],intList[place] * concentration,spin[3],spin[4],spin[5]]
 
 
     def expandBroadening(self,nsteps=10):
@@ -213,7 +211,9 @@ if __name__ == '__main__':
     # Some test code
     tube = sample()
     tube.addMolecule([('1H',0,1),('1H',1,1),('13C',1,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]),1,3,1,1)
-    tube.expandSystems(7,'1H',['13C',0,10000])
+    elems = tube.expandSystems(7,'1H',['13C',0,10000])
+    for e in elems:
+        print(e)
 
     
 
