@@ -80,6 +80,26 @@ def scaleScalarCouplings(J,spins,decouple,B0):
             J[:,pos] = J[pos,:] * scale
     return J
 
+def lorentz(T2,axis):
+    """
+    Calculates a Lorentz distribution for a T2 and an sampling axis.
+    No shape offset is used. The values are normalized to the sum.
+
+    Parameters
+    -------
+    T2: float, T2 lifetime (1/width)
+    axis: 1D array, 'frequency' axis values.
+
+    Returns
+    -------
+    1D array: intensity values.
+    """
+    w = 1/(T2*np.pi)
+    x = axis/(w/2)
+    L = 1/(1+x**2)
+    L /= np.sum(L)
+    return L
+
 class sample():
     def __init__(self):
         self.moleculeList = []
@@ -197,13 +217,41 @@ class sample():
                         yield [freqList[place],intList[place] * concentration,spin[3],spin[4],spin[5]]
 
 
-    def expandBroadening(self,nsteps=10):
+    def expandBroadening(self,spinList,widthMax = 3, factor = 50):
         """
-        Expand the list of spins further, making a series for the T2prime broadening
-        nsteps: int, number of subdivisions per spin
-        or: resolution of subdivision?
+        Expand each spin, to take T2' broadening (e.g. shimming)
+        into account. Do this via subsampling with lorentz lines.
+
+        Parameters
+        ----------
+        spinList: iterable of lists with [freq,intensity,T1,T2,T2prime]
+        widthMax: float, indicates the maximum distance from the centre 
+             of the T2prime lorentz that needs to be sampled in units of (1/T2prime)
+             [default = 3]
+        factor: int, indicates the amount of sampled points, which is multiplied
+             with the T2:T2prime ratio.
+
+        Returns
+        -------
+        Iterable of list with the individual 'lines', having:
+            [Frequency, Intensity, T1, T2]
         """
-        pass
+        for spin in spinList:
+            print(spin)
+            freq, inten, T1, T2, T2prime = spin
+            samples = int(T2/T2prime * factor)
+            if samples%2 == 0:
+                samples += 1
+            print(samples)
+            limit = widthMax / T2prime
+            sel = np.linspace(-limit,limit,samples)
+            distr = lorentz(T2prime,sel)
+            for pos, shift in enumerate(sel):
+                intenNew = inten * distr[pos]
+                freqNew = freq + shift
+                yield [freqNew,intenNew,T1,T2]
+            
+
 
 
 if __name__ == '__main__':
@@ -211,9 +259,9 @@ if __name__ == '__main__':
     # Some test code
     tube = sample()
     tube.addMolecule([('1H',0,1),('1H',1,1),('13C',1,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]),1,3,1,1)
-    elems = tube.expandSystems(7,'1H',['13C',0,10000])
-    for e in elems:
-        print(e)
+    elems = tube.expandSystems(1,'1H',['13C',0,10000])
+    elem2 = tube.expandBroadening(elems)
+
 
     
 
