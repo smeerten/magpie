@@ -22,6 +22,14 @@
 import os.path
 from PyQt5 import QtGui, QtCore, QtWidgets
 import sys
+import numpy as np
+
+import matplotlib
+# First import matplotlib and Qt
+matplotlib.use('Qt5Agg')
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
 import loadIsotopes
 VERSION = '0.0'
 
@@ -49,8 +57,9 @@ class MainProgram(QtWidgets.QMainWindow):
         self.mainFrame.addWidget(self.exportFrame,2,0,1,2)
 
 
-        self.resize(800, 600)
+        self.resize(800, 700)
         self.show()
+
 
 class ExportFrame(QtWidgets.QWidget):
     def __init__(self, parent):
@@ -64,9 +73,8 @@ class ExportFrame(QtWidgets.QWidget):
         self.exportSpectrumButton = QtWidgets.QPushButton('Export Spectrum')
         self.exportSpectrumButton.setEnabled(False)
         grid.addWidget(self.exportSpectrumButton,0,11)
-
-
         grid.setColumnStretch(0, 1)
+
 
 class ParameterFrame(QtWidgets.QFrame):
     def __init__(self, parent):
@@ -92,8 +100,6 @@ class ParameterFrame(QtWidgets.QFrame):
         self.acqtimeValue = QtWidgets.QLineEdit('1')
         grid.addWidget(self.acqtimeLabel,3,0)
         grid.addWidget(self.acqtimeValue,3,1)
-
-
         grid.setColumnStretch(20, 1)
 
     def getSettings(self):
@@ -105,9 +111,111 @@ class ParameterFrame(QtWidgets.QFrame):
 class PlotFrame(QtWidgets.QTabWidget):
     def __init__(self, parent):
         super(PlotFrame, self).__init__(parent)
-        self.addTab(QtWidgets.QWidget(),'Spectrum')
-        self.addTab(QtWidgets.QWidget(),'FID')
-        self.addTab(QtWidgets.QWidget(),'Pulse Sequence')
+        self.specFrame = SpecPlotFrame(self)
+        self.specFrame.plot([-1,-2],[3,4])
+        self.fidFrame = FidPlotFrame(self)
+        self.sequenceFrame = SequenceDiagram(self)
+        self.addTab(self.specFrame,'Spectrum')
+        self.addTab(self.fidFrame,'FID')
+        self.addTab(self.sequenceFrame,'Pulse Sequence')
+
+
+class AbstractPlotFrame(QtWidgets.QWidget):
+    SPEC = False
+    def __init__(self, parent):
+        super(AbstractPlotFrame, self).__init__(parent)
+        self.fig = Figure()
+        self.canvas = FigureCanvas(self.fig)
+        grid = QtWidgets.QGridLayout(self)
+        grid.addWidget(self.canvas, 0, 0)
+        self.ax = self.fig.add_subplot(111)
+
+    def plot(self,xdata,ydata):
+        self.ax.plot(xdata,ydata)
+        self.canvas.draw()
+        if self.SPEC:
+            self.ax.set_xlim(np.max(xdata), np.min(xdata))
+        else:
+            self.ax.set_xlim(np.min(xdata),np.max(xdata))
+
+    def resetPlot(self):
+        self.ax.cla()
+
+
+class SequenceDiagram(AbstractPlotFrame):
+    PULSEW = 0.75
+    PULSEH = 1
+    DELAYW = 2
+    FIDW = 3
+    FIDH = 1
+    LINEWIDTH = 2
+    FONTSIZE = 12
+    TEXTHEIGHT = 1.1
+
+    def __init__(self, parent):
+        super(SequenceDiagram, self).__init__(parent)
+        self.ax.axis('off')
+        self.xpos = 0
+
+        self.setIsotope('1H')
+        self.drawDelay('RD')
+        self.drawPulse('p1')
+        self.drawFid('Acq')
+        self.ax.set_xlim([-1,10])
+        self.ax.set_ylim([-1,1.5])
+
+    def setIsotope(self,iso):
+        self.ax.text(-.2,0,iso,horizontalalignment='right',fontsize=self.FONTSIZE)
+
+    def drawPulse(self,text=None):
+        self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, 0), self.PULSEW, self.PULSEH,linewidth=self.LINEWIDTH,edgecolor='tab:blue'))
+        self._addText(text,self.PULSEW)
+        self.xpos += self.PULSEW
+
+    def drawDelay(self,text=None):
+        self.ax.plot([self.xpos,self.xpos+self.DELAYW],[0,0],c='tab:blue',linewidth=self.LINEWIDTH)
+        self._addText(text,self.DELAYW)
+        self.xpos += self.DELAYW
+
+    def drawFid(self,text=None):
+        samples = 100
+        T2 = 0.3
+        xdata = np.linspace(0,1,samples)
+        ydata = self.FIDH * np.cos(xdata * 30) * np.exp(-xdata / T2)
+        self._addText(text,self.FIDW)
+        self.ax.plot(xdata * self.FIDW + self.xpos,ydata,c='tab:blue',linewidth=self.LINEWIDTH)
+        self.xpos += self.FIDW
+
+    def _addText(self,text,xAdder):
+        if text is not None:
+            self.ax.text(self.xpos + 0.5*xAdder,self.TEXTHEIGHT,text,horizontalalignment='center',fontsize=self.FONTSIZE)
+
+    def resetPlot(self):
+        AbstractPlotFrame.resetPlot(self)
+        self.ax.axis('off')
+        self.xpos = 0
+
+
+class FidPlotFrame(AbstractPlotFrame):
+    def __init__(self, parent):
+        super(FidPlotFrame, self).__init__(parent)
+        self.ax.set_xlabel('Time [s]')
+        self.ax.set_ylabel('Intensity [arb. u.]')
+
+
+class SpecPlotFrame(AbstractPlotFrame):
+    SPEC = True
+    def __init__(self, parent):
+        super(SpecPlotFrame, self).__init__(parent)
+        self.ax2 = self.ax.twiny()
+        self.ax.set_xlabel('Shift [ppm]')
+        self.ax.set_ylabel('Intensity [arb. u.]')
+        self.ax2.set_xlabel('Frequency [kHz]')
+
+    def plot(self,xdata,ydata):
+        AbstractPlotFrame.plot(self,xdata,ydata)
+        self.ax2.set_xlim([100,-100])
+
 
 class SpectrometerFrame(QtWidgets.QFrame):
     def __init__(self, parent):
