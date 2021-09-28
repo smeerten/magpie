@@ -76,31 +76,35 @@ class ExportFrame(QtWidgets.QWidget):
         grid.setColumnStretch(0, 1)
 
 
-class ParameterFrame(QtWidgets.QFrame):
+class ParameterFrame(QtWidgets.QTabWidget):
     def __init__(self, parent):
         super(ParameterFrame, self).__init__(parent)
         self.father = parent
-        self.setFrameShape(1)
-        grid = QtWidgets.QGridLayout(self)
-        self.setLayout(grid)
-        self.title = QtWidgets.QLabel('<b>Acquisition parameters:</b>')
-        #self.title.setAlignment(QtCore.Qt.AlignCenter)
-        grid.addWidget(self.title,0,0,1,10)
+        self.addSaturation('Saturation')
+        self.addDelay('D1')
+        self.addPulse('P1')
+        self.addShapedPulse('P2')
+        self.addAcq('Acquisition')
+        self.currentChanged.connect(self.tabChanged)
+        #self.tabChanged(0)
 
-        self.swLabel = QtWidgets.QLabel('Spectral Width [kHz]:')
-        self.swValue = QtWidgets.QLineEdit('100')
-        grid.addWidget(self.swLabel,1,0)
-        grid.addWidget(self.swValue,1,1)
+    def tabChanged(self,index):
+        self.father.plotFrame.sequenceFrame.highlightElement(index)
+       
+    def addDelay(self,title):
+        self.addTab(DelayWidget(self),title)
 
-        self.offsetLabel = QtWidgets.QLabel('Offset [kHz]:')
-        self.offsetValue = QtWidgets.QLineEdit('0')
-        grid.addWidget(self.offsetLabel,2,0)
-        grid.addWidget(self.offsetValue,2,1)
-        self.acqtimeLabel = QtWidgets.QLabel('Acquisition Time [s]:')
-        self.acqtimeValue = QtWidgets.QLineEdit('1')
-        grid.addWidget(self.acqtimeLabel,3,0)
-        grid.addWidget(self.acqtimeValue,3,1)
-        grid.setColumnStretch(20, 1)
+    def addPulse(self,title):
+        self.addTab(PulseWidget(self),title)
+
+    def addShapedPulse(self,title):
+        self.addTab(PulseWidget(self),title)
+
+    def addAcq(self,title):
+        self.addTab(AcqWidget(self),title)
+
+    def addSaturation(self,title):
+        self.addTab(ParameterWidget(self),title)
 
     def getSettings(self):
         """
@@ -108,9 +112,63 @@ class ParameterFrame(QtWidgets.QFrame):
         To be used when acquiring
         """
 
+class ParameterWidget(QtWidgets.QWidget):
+    def __init__(self, parent):
+        super(ParameterWidget, self).__init__(parent)
+        self.grid = QtWidgets.QGridLayout(self)
+        self.grid.setColumnStretch(10, 1)
+        self.params = []
+
+    def returnValues(self):
+        values = []
+        for elem in self.params:
+            values.append(float(elem)) #NEeds safe eval, and array detection.
+        return values
+
+class DelayWidget(ParameterWidget):
+    def __init__(self, parent):
+        super(DelayWidget, self).__init__(parent)
+        self.grid.addWidget(QtWidgets.QLabel('Duration [s]'),0,0)
+        self.delay = QtWidgets.QLineEdit('1')
+        self.params.append(self.delay)
+        self.grid.addWidget(self.delay,0,1)
+
+class PulseWidget(ParameterWidget):
+    def __init__(self, parent):
+        super(PulseWidget, self).__init__(parent)
+        self.grid.addWidget(QtWidgets.QLabel('Duration [µs]'),0,0)
+        self.delay = QtWidgets.QLineEdit('1')
+        self.params.append(self.delay)
+        self.grid.addWidget(self.delay,0,1)
+
+        self.grid.addWidget(QtWidgets.QLabel('Amplitude [kHz]'),0,2)
+        self.amplitude = QtWidgets.QLineEdit('1')
+        self.params.append(self.amplitude)
+        self.grid.addWidget(self.amplitude,0,3)
+
+class AcqWidget(ParameterWidget):
+    def __init__(self, parent):
+        super(AcqWidget, self).__init__(parent)
+        self.grid.addWidget(QtWidgets.QLabel('Spectral Width [kHz]'),0,0)
+        self.sw = QtWidgets.QLineEdit('100')
+        self.params.append(self.sw)
+        self.grid.addWidget(self.sw,0,1)
+
+        self.grid.addWidget(QtWidgets.QLabel('# of points'),0,2)
+        self.np = QtWidgets.QLineEdit('1024')
+        self.params.append(self.np)
+        self.grid.addWidget(self.np,0,3)
+
+        self.grid.addWidget(QtWidgets.QLabel('Acq. time [s]'),0,4)
+        self.acqTime = QtWidgets.QLineEdit('1')
+        self.params.append(self.acqTime)
+        self.grid.addWidget(self.acqTime,0,5)
+
+
 class PlotFrame(QtWidgets.QTabWidget):
     def __init__(self, parent):
         super(PlotFrame, self).__init__(parent)
+        self.father = parent
         self.specFrame = SpecPlotFrame(self)
         self.specFrame.plot([-1,-2],[3,4])
         self.fidFrame = FidPlotFrame(self)
@@ -157,6 +215,7 @@ class SequenceDiagram(AbstractPlotFrame):
 
     def __init__(self, parent):
         super(SequenceDiagram, self).__init__(parent)
+        self.father = parent
         self.ax.axis('off')
         self.xpos = 0
         self.elems = []
@@ -231,6 +290,7 @@ class SequenceDiagram(AbstractPlotFrame):
             else:
                 elem[0].set_color(elem[1])
         self.canvas.draw()
+        self.father.father.paramFrame.setCurrentIndex(pos)
 
     def resetPlot(self):
         AbstractPlotFrame.resetPlot(self)
