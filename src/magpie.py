@@ -145,9 +145,12 @@ class AbstractPlotFrame(QtWidgets.QWidget):
 class SequenceDiagram(AbstractPlotFrame):
     PULSEW = 0.75
     PULSEH = 1
+    SHAPEW = 1.5
     DELAYW = 2
     FIDW = 3
     FIDH = 1
+    SATH = 0.2
+    SATW = 2
     LINEWIDTH = 2
     FONTSIZE = 12
     TEXTHEIGHT = 1.1
@@ -158,19 +161,36 @@ class SequenceDiagram(AbstractPlotFrame):
         self.xpos = 0
 
         self.setIsotope('1H')
+        self.drawSaturation('Sat.')
         self.drawDelay('RD')
         self.drawPulse('p1')
+        self.drawShapedPulse('p2')
         self.drawFid('Acq')
         self.ax.set_xlim([-1,10])
         self.ax.set_ylim([-1,1.5])
 
     def setIsotope(self,iso):
-        self.ax.text(-.2,0,iso,horizontalalignment='right',fontsize=self.FONTSIZE)
+        self.ax.text(-.2,0,iso,horizontalalignment='right',verticalalignment='center',fontsize=self.FONTSIZE)
 
     def drawPulse(self,text=None):
         self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, 0), self.PULSEW, self.PULSEH,linewidth=self.LINEWIDTH,edgecolor='tab:blue'))
         self._addText(text,self.PULSEW)
         self.xpos += self.PULSEW
+
+    def drawShapedPulse(self,text=None):
+        samples = 100
+
+        xdata = np.linspace(-2*np.pi,2*np.pi,samples)
+        ydata = self.PULSEH * np.sin(xdata)/xdata 
+        self.ax.plot((xdata + 2*np.pi) * self.SHAPEW / (4*np.pi) + self.xpos,ydata,c='tab:blue',linewidth=self.LINEWIDTH)
+        self._addText(text,self.SHAPEW)
+        self.xpos += self.SHAPEW
+
+
+    def drawSaturation(self,text=None):
+        self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, 0), self.SATW, self.SATH,linewidth=self.LINEWIDTH,edgecolor='tab:blue'))
+        self._addText(text,self.SATW)
+        self.xpos += self.SATW
 
     def drawDelay(self,text=None):
         self.ax.plot([self.xpos,self.xpos+self.DELAYW],[0,0],c='tab:blue',linewidth=self.LINEWIDTH)
