@@ -219,6 +219,7 @@ class SequenceDiagram(AbstractPlotFrame):
         self.ax.axis('off')
         self.xpos = 0
         self.elems = []
+        self.backElems = [] #Holds transparent background images
         self.canvas.mpl_connect('pick_event', self.pickHandler)
         self.setIsotope('1H')
         self.drawSaturation('Sat.')
@@ -235,6 +236,10 @@ class SequenceDiagram(AbstractPlotFrame):
             if elem[0] is artist:
                 self.highlightElement(pos)
 
+        for pos, elem in enumerate(self.backElems):
+            if elem is artist:
+                self.highlightElement(pos)
+
     def setIsotope(self,iso):
         self.ax.text(-.2,0,iso,horizontalalignment='right',verticalalignment='center',fontsize=self.FONTSIZE)
 
@@ -242,6 +247,9 @@ class SequenceDiagram(AbstractPlotFrame):
         elem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, 0), self.PULSEW, self.PULSEH,linewidth=self.LINEWIDTH,edgecolor='tab:blue',picker=True))
         self.elems.append([elem,'tab:blue'])
         self._addText(text,self.PULSEW)
+        #Add transparent background
+        backelem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, -self.PULSEH), self.PULSEW, 2*self.PULSEH,linewidth=self.LINEWIDTH,picker=True,alpha=0))
+        self.backElems.append(backelem)
         self.xpos += self.PULSEW
 
     def drawShapedPulse(self,text=None):
@@ -251,18 +259,27 @@ class SequenceDiagram(AbstractPlotFrame):
         elem = self.ax.plot((xdata + 2*np.pi) * self.SHAPEW / (4*np.pi) + self.xpos,ydata,c='tab:blue',linewidth=self.LINEWIDTH,picker=True)
         self.elems.append([elem[0],'tab:blue'])
         self._addText(text,self.SHAPEW)
+
+        backelem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, -self.PULSEH), self.SHAPEW, 2*self.PULSEH,linewidth=self.LINEWIDTH,picker=True,alpha=0))
+        self.backElems.append(backelem)
         self.xpos += self.SHAPEW
 
     def drawSaturation(self,text=None):
         elem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, 0), self.SATW, self.SATH,linewidth=self.LINEWIDTH,edgecolor='tab:blue',picker=True))
         self.elems.append([elem,'tab:blue'])
         self._addText(text,self.SATW)
+
+        backelem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, -self.PULSEH), self.SATW, 2*self.PULSEH,linewidth=self.LINEWIDTH,picker=True,alpha=0))
+        self.backElems.append(backelem)
         self.xpos += self.SATW
 
     def drawDelay(self,text=None):
         elem = self.ax.plot([self.xpos,self.xpos+self.DELAYW],[0,0],c='tab:blue',linewidth=self.LINEWIDTH,picker=True)
         self.elems.append([elem[0],'tab:blue'])
         self._addText(text,self.DELAYW)
+
+        backelem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, -self.PULSEH), self.DELAYW, 2*self.PULSEH,linewidth=self.LINEWIDTH,picker=True,alpha=0))
+        self.backElems.append(backelem)
         self.xpos += self.DELAYW
 
     def drawFid(self,text=None):
@@ -273,6 +290,9 @@ class SequenceDiagram(AbstractPlotFrame):
         self._addText(text,self.FIDW)
         elem = self.ax.plot(xdata * self.FIDW + self.xpos,ydata,c='tab:blue',linewidth=self.LINEWIDTH,picker=True)
         self.elems.append([elem[0],'tab:blue'])
+
+        backelem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, -self.PULSEH), self.FIDW, 2*self.PULSEH,linewidth=self.LINEWIDTH,picker=True,alpha=0))
+        self.backElems.append(backelem)
         self.xpos += self.FIDW
 
     def _addText(self,text,xAdder):
@@ -297,6 +317,7 @@ class SequenceDiagram(AbstractPlotFrame):
         self.ax.axis('off')
         self.xpos = 0
         self.elems = []
+        self.backElems = []
 
 
 class FidPlotFrame(AbstractPlotFrame):
