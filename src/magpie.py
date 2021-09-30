@@ -80,37 +80,48 @@ class ParameterFrame(QtWidgets.QTabWidget):
     def __init__(self, parent):
         super(ParameterFrame, self).__init__(parent)
         self.father = parent
+        self.parWidgets = []
         self.addSaturation('Saturation')
         self.addDelay('D1')
         self.addPulse('P1')
         self.addShapedPulse('P2')
         self.addAcq('Acquisition')
         self.currentChanged.connect(self.tabChanged)
-        #self.tabChanged(0)
 
     def tabChanged(self,index):
         self.father.plotFrame.sequenceFrame.highlightElement(index)
        
     def addDelay(self,title):
-        self.addTab(DelayWidget(self),title)
+        self.parWidgets.append(DelayWidget(self))
+        self.addTab(self.parWidgets[-1],title)
 
     def addPulse(self,title):
-        self.addTab(PulseWidget(self),title)
+        self.parWidgets.append(PulseWidget(self))
+        self.addTab(self.parWidgets[-1],title)
 
     def addShapedPulse(self,title):
-        self.addTab(PulseWidget(self),title)
+        self.parWidgets.append(PulseWidget(self))
+        self.addTab(self.parWidgets[-1],title)
 
     def addAcq(self,title):
-        self.addTab(AcqWidget(self),title)
+        self.parWidgets.append(AcqWidget(self))
+        self.addTab(self.parWidgets[-1],title)
 
     def addSaturation(self,title):
-        self.addTab(ParameterWidget(self),title)
+        self.parWidgets.append(ParameterWidget(self))
+        self.addTab(self.parWidgets[-1],title)
 
-    def getSettings(self):
-        """
-        Returns all the settings in a dictionary or list format.
-        To be used when acquiring
-        """
+    def getParameters(self):
+        pars = []
+        for wid in self.parWidgets:
+            pars.append(wid.returnValues())
+        return pars
+
+    def reset(self):
+        self.parWidgets = []
+        print(self.count())
+        for _ in range(self.count()):
+            self.removeTab(0)
 
 def safeEval(inp, Type='All'):
     """
@@ -158,7 +169,6 @@ class ParameterWidget(QtWidgets.QWidget):
         values = []
         for elem in self.params:
             values.append(safeEval(elem.text())) #Needs safe eval, and array detection.
-        print(values)
         return values
 
 class DelayWidget(ParameterWidget):
@@ -430,8 +440,7 @@ class SpectrometerFrame(QtWidgets.QFrame):
         self.grid = grid
 
     def simulate(self):
-        parameters = self.father.paramFrame.getSettings()
-        pass
+        parameters = self.father.paramFrame.getParameters()
 
 
 if __name__ == '__main__':
