@@ -251,6 +251,7 @@ class SequenceDiagram(AbstractPlotFrame):
 
     def __init__(self, parent):
         super(SequenceDiagram, self).__init__(parent)
+        self._setRelLinewidth()
         self.father = parent
         self.ax.axis('off')
         self.xpos = 0
@@ -266,6 +267,11 @@ class SequenceDiagram(AbstractPlotFrame):
         self.ax.set_xlim([-1,10])
         self.ax.set_ylim([-1,1.5])
 
+    def _setRelLinewidth(self):
+        linescaler = self.ax.transData.transform([(0, 0), (1, 1)])
+        linescaler = linescaler[0][0] - linescaler[0][1]
+        self.relLineWidth = self.LINEWIDTH/linescaler
+
     def pickHandler(self,pickEvent):
         artist = pickEvent.artist
         for pos, elem in enumerate(self.elems):
@@ -280,37 +286,37 @@ class SequenceDiagram(AbstractPlotFrame):
         self.ax.text(-.2,0,iso,horizontalalignment='right',verticalalignment='center',fontsize=self.FONTSIZE)
 
     def drawPulse(self,text=None):
-        elem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, 0), self.PULSEW, self.PULSEH,linewidth=self.LINEWIDTH,edgecolor='tab:blue',picker=True))
-        self.elems.append([elem,'tab:blue'])
+        elem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, 0), self.PULSEW, self.PULSEH,linewidth=self.LINEWIDTH,color='black',picker=True))
+        self.elems.append([elem,'black'])
         self._addText(text,self.PULSEW)
         #Add transparent background
         self._addBackgroundRect(self.PULSEW)
-        self.xpos += self.PULSEW
-
+        self.xpos += self.PULSEW + self.relLineWidth
+ 
     def drawShapedPulse(self,text=None):
         samples = 100
         xdata = np.linspace(-2*np.pi,2*np.pi,samples)
         ydata = self.PULSEH * np.sin(xdata)/xdata 
-        elem = self.ax.plot((xdata + 2*np.pi) * self.SHAPEW / (4*np.pi) + self.xpos,ydata,c='tab:blue',linewidth=self.LINEWIDTH,picker=True)
-        self.elems.append([elem[0],'tab:blue'])
+        elem = self.ax.plot((xdata + 2*np.pi) * self.SHAPEW / (4*np.pi) + self.xpos,ydata,c='black',linewidth=self.LINEWIDTH,picker=True)
+        self.elems.append([elem[0],'black'])
         self._addText(text,self.SHAPEW)
         self._addBackgroundRect(self.PULSEW)
-        self.xpos += self.SHAPEW
+        self.xpos += self.SHAPEW + self.relLineWidth
 
     def drawSaturation(self,text=None):
-        elem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, 0), self.SATW, self.SATH,linewidth=self.LINEWIDTH,edgecolor='tab:blue',picker=True))
-        self.elems.append([elem,'tab:blue'])
+        elem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, 0), self.SATW, self.SATH,linewidth=self.LINEWIDTH,color='black',hatch='////',fill=False,picker=True))
+        self.elems.append([elem,'black'])
         self._addText(text,self.SATW)
         self._addBackgroundRect(self.SATW)
-        self.xpos += self.SATW
+        self.xpos += self.SATW + self.relLineWidth
 
     def drawDelay(self,text=None):
-        elem = self.ax.plot([self.xpos,self.xpos+self.DELAYW],[0,0],c='tab:blue',linewidth=self.LINEWIDTH,picker=True)
-        self.elems.append([elem[0],'tab:blue'])
+        elem = self.ax.plot([self.xpos,self.xpos+self.DELAYW],[0,0],c='black',linewidth=self.LINEWIDTH,picker=True)
+        self.elems.append([elem[0],'black'])
         self._addText(text,self.DELAYW)
 
         self._addBackgroundRect(self.DELAYW)
-        self.xpos += self.DELAYW
+        self.xpos += self.DELAYW + self.relLineWidth
 
     def drawFid(self,text=None):
         samples = 100
@@ -318,8 +324,8 @@ class SequenceDiagram(AbstractPlotFrame):
         xdata = np.linspace(0,1,samples)
         ydata = self.FIDH * np.cos(xdata * 30) * np.exp(-xdata / T2)
         self._addText(text,self.FIDW)
-        elem = self.ax.plot(xdata * self.FIDW + self.xpos,ydata,c='tab:blue',linewidth=self.LINEWIDTH,picker=True)
-        self.elems.append([elem[0],'tab:blue'])
+        elem = self.ax.plot(xdata * self.FIDW + self.xpos,ydata,c='black',linewidth=self.LINEWIDTH,picker=True)
+        self.elems.append([elem[0],'black'])
         self._addBackgroundRect(self.FIDW)
         self.xpos += self.FIDW
 
