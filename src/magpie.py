@@ -248,8 +248,7 @@ class SequenceDiagram(AbstractPlotFrame):
         self.elems.append([elem,'tab:blue'])
         self._addText(text,self.PULSEW)
         #Add transparent background
-        backelem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, -self.PULSEH), self.PULSEW, 2*self.PULSEH,linewidth=self.LINEWIDTH,picker=True,alpha=0))
-        self.backElems.append(backelem)
+        self._addBackgroundRect(self.PULSEW)
         self.xpos += self.PULSEW
 
     def drawShapedPulse(self,text=None):
@@ -259,18 +258,14 @@ class SequenceDiagram(AbstractPlotFrame):
         elem = self.ax.plot((xdata + 2*np.pi) * self.SHAPEW / (4*np.pi) + self.xpos,ydata,c='tab:blue',linewidth=self.LINEWIDTH,picker=True)
         self.elems.append([elem[0],'tab:blue'])
         self._addText(text,self.SHAPEW)
-
-        backelem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, -self.PULSEH), self.SHAPEW, 2*self.PULSEH,linewidth=self.LINEWIDTH,picker=True,alpha=0))
-        self.backElems.append(backelem)
+        self._addBackgroundRect(self.PULSEW)
         self.xpos += self.SHAPEW
 
     def drawSaturation(self,text=None):
         elem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, 0), self.SATW, self.SATH,linewidth=self.LINEWIDTH,edgecolor='tab:blue',picker=True))
         self.elems.append([elem,'tab:blue'])
         self._addText(text,self.SATW)
-
-        backelem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, -self.PULSEH), self.SATW, 2*self.PULSEH,linewidth=self.LINEWIDTH,picker=True,alpha=0))
-        self.backElems.append(backelem)
+        self._addBackgroundRect(self.SATW)
         self.xpos += self.SATW
 
     def drawDelay(self,text=None):
@@ -278,8 +273,7 @@ class SequenceDiagram(AbstractPlotFrame):
         self.elems.append([elem[0],'tab:blue'])
         self._addText(text,self.DELAYW)
 
-        backelem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, -self.PULSEH), self.DELAYW, 2*self.PULSEH,linewidth=self.LINEWIDTH,picker=True,alpha=0))
-        self.backElems.append(backelem)
+        self._addBackgroundRect(self.DELAYW)
         self.xpos += self.DELAYW
 
     def drawFid(self,text=None):
@@ -290,14 +284,16 @@ class SequenceDiagram(AbstractPlotFrame):
         self._addText(text,self.FIDW)
         elem = self.ax.plot(xdata * self.FIDW + self.xpos,ydata,c='tab:blue',linewidth=self.LINEWIDTH,picker=True)
         self.elems.append([elem[0],'tab:blue'])
-
-        backelem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, -self.PULSEH), self.FIDW, 2*self.PULSEH,linewidth=self.LINEWIDTH,picker=True,alpha=0))
-        self.backElems.append(backelem)
+        self._addBackgroundRect(self.FIDW)
         self.xpos += self.FIDW
 
     def _addText(self,text,xAdder):
         if text is not None:
             self.ax.text(self.xpos + 0.5*xAdder,self.TEXTHEIGHT,text,horizontalalignment='center',fontsize=self.FONTSIZE)
+
+    def _addBackgroundRect(self,width):
+        backelem = self.ax.add_patch(matplotlib.patches.Rectangle((self.xpos, -self.PULSEH), width, 2*self.PULSEH,linewidth=self.LINEWIDTH,picker=True,alpha=0))
+        self.backElems.append(backelem)
 
     def resetColors(self):
         for elem in self.elems:
