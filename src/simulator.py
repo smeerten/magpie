@@ -24,14 +24,11 @@ import matplotlib.pyplot as plt
 
 import sample
 
-def diffMat(B, T1, T2):
-    Bx, By, Bz = B
-    return np.array([[-1/T2, Bz,  -By],
-                     [-Bz,   -1/T2, Bx],
-                     [By,   -Bx,  -1/T1]])
-
 def diffEq(t, M, B, T1, T2, M0):
-    mat = diffMat(B, T1, T2)
+    Bx, By, Bz = B
+    mat = np.array([[-1/T2, Bz,  -By],
+                    [-Bz,   -1/T2, Bx],
+                    [By,   -Bx,  -1/T1]])
     dMdt = np.matmul(mat, M)
     dMdt[2] += M0/T1
     return dMdt
@@ -43,77 +40,90 @@ class Simulator():
         self.pulseSeq = pulseSeq
         self.settings = settings
         self.sample = sample
+        self.allSpins = None
+        self.phaseIter = 0
+        self.arrayIter = 0
+        self.FID = []
         
-    def simulate(self, scans=1):
+    def reset(self):
+        self.allSpins = np.array(list(self.sample.expandSystems(self.settings['B0'], self.settings['observe'])))
+        self.phaseIter = 0
+        self.arrayIter = 0
+        self.FID = []
+
+    def step(self):
+        self.phaseIter = 0
+        self.arrayIter += 1
+        
+    def scan(self):
         """
         Simulate using the defined pulseSeq, settings, and sample.
-
-        Parameters
-        ----------
-        scans : int, optional
-            Number of scans for which the pulse sequence will be simulated.
-            Default is 1.
-
-        Returns
-        -------
-        Array
-            The datapoints in the FID blocks of the pulseSeq.
         """
-        allSpins = self.sample.expandSystems(self.settings['B0'], self.settings['observe'])
-        FID = None
-        for spinInfo in allSpins:
+        for spinInfo in self.allSpins:
             Frequency, Intensity, T1, T2, T2prime = spinInfo
-            spinFID = self.simulateSpin(Intensity, Frequency, T1, T2)
-            if FID is None:
-                FID = spinFID
+            spinFID, newAmp = self.simulateSpin(Intensity, Frequency, T1, T2, len(self.allSpins))
+            spinInfo[1] = newAmp
+            if len(self.FID) == self.arrayIter:
+                self.FID.append(spinFID)
             else:
-                FID += spinFID
-        return FID
+                self.FID[self.arrayIter] += spinFID
+        self.phaseIter += 1
                 
-
-    def simulateSpin(self, amp, freq, T1, T2, scans=1):
+    def simulateSpin(self, amp, freq, T1, T2, numSpins):
         M = np.array([0, 0, amp])
-        fullResults = None
-        for i in range(scans):
-            M[0] = 0.0
-            M[1] = 0.0
-            scanResults = []
-            for pulseStep in self.pulseSeq:
-                if pulseStep[0] == 'pulse':
-                    rf = pulseStep[2]
-                    phase = pulseStep[3]
-                    B = 2 * np.pi * np.array([rf*np.cos(phase), rf*np.sin(phase), freq])
-                else:
-                    B = 2 * np.pi * np.array([0, 0, freq])
-                if pulseStep[0] == 'FID':
-                    npoints = pulseStep[2]
-                    t_eval = np.linspace(0, pulseStep[1], pulseStep[2])
-                else:
-                    t_eval = None
-                sol = solve_ivp(diffEq, (0, pulseStep[1]), M, t_eval=t_eval, args=(B, T1, T2, amp))
-                M = sol.y[:,-1]
-                if pulseStep[0] == 'FID':
-                    scanResults.append(sol.y[0] + 1j*sol.y[1])
-            scanResults = np.concatenate(scanResults)
-            if fullResults is None:
-                fullResults = scanResults
+        scanResults = []
+        for pulseStep in self.pulseSeq:
+            if pulseStep[0] == 'pulse':
+                rf = pulseStep[2]
+                if hasattr(rf, '__iter__'):
+                    rf = rf[self.arrayIter % len(rf)]
+                phase = pulseStep[3]
+                if hasattr(phase, '__iter__'):
+                    phase = phase[self.phaseIter % len(phase)]
+                phase = np.deg2rad(phase)
+                B = 2 * np.pi * np.array([rf*np.cos(phase), rf*np.sin(phase), freq])
             else:
-                fullResults += scanResults
-        return fullResults
+                B = 2 * np.pi * np.array([0, 0, freq])
+            timeStep = pulseStep[1]
+            if hasattr(timeStep, '__iter__'):
+                timeStep = timeStep[self.arrayIter % len(timeStep)]
+            if pulseStep[0] == 'FID':
+                npoints = pulseStep[2]
+                t_eval = np.linspace(0, timeStep, pulseStep[2])
+            else:
+                t_eval = None
+            sol = solve_ivp(diffEq, (0, timeStep), M, t_eval=t_eval, args=(B, T1, T2, amp), vectorized=True)
+            M = sol.y[:,-1]
+            if pulseStep[0] == 'FID':
+                # TODO: proper scaling factor for noise factor
+                noiseFactor = 1.0e-4/(t_eval[1]-t_eval[0])
+                noise = 1j*np.random.normal(0, noiseFactor, len(sol.y[0]))
+                noise += np.random.normal(0, noiseFactor, len(sol.y[0]))
+                scanResults.append(sol.y[0] + 1j*sol.y[1] + noise/float(numSpins))
+        if len(scanResults) > 0:
+            scanResults = np.concatenate(scanResults)
+        else:
+            scanResults = np.array(scanResults)
+        return scanResults, M[2]
             
 
 if __name__ == '__main__':
     tube = sample.sample()
-    tube.addMolecule([('1H',0,1),('1H',1,1),('13C',1,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]),1,3,0.3,1)
+    tube.addMolecule([('1H',0,1),('1H',1,1),('13C',1,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]), 1, 0.3, 0.3, 1)
 
     settings = {'B0':1.0, 'observe':'1H'}
     pulseSeq = [('delay', 1),
-                ('pulse', 1e-6, 100e3, -np.pi/2.0),
-                ('FID', 10, 2048)]
+                ('pulse', 2.5e-6, 100e3, -90),
+                ('FID', 4, 1024)]
     
     sim = Simulator(pulseSeq, settings, tube)
-    fid = sim.simulate()
-    spectrum = np.fft.fftshift(np.fft.fft(fid))
-    plt.plot(np.real(spectrum))
-    plt.plot(np.imag(spectrum))
+    sim.reset()
+    for i in range(10):
+        sim.scan()
+        fid = sim.FID[0] / sim.phaseIter
+        fid[0] *= 0.5
+        spectrum = np.fft.fftshift(np.fft.fft(fid))
+        plt.plot(np.real(spectrum))
+        #plt.plot(np.imag(spectrum))
+        #sim.step()
     plt.show()
