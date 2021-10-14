@@ -1,0 +1,5 @@
+name,time,amp,phase
+delay,1
+delay,1
+pulse,2.5e-6,100e3,-90
+FID,4,1024
