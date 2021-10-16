@@ -1,0 +1,21 @@
+###SAMPLE###
+amount 1 #(optional)
+###MOLECULE###
+amount 1 
+T1 1 (optional)
+T2 1 (optional)
+T2prime 1 (optional)
+spin 1H 0 1 _ _ _ # isotope shift multi T1 T2 T2prime
+spin 1H 0 1
+spin 1H 0 1 _ 1 _
+J 1 2 10 #J spin1 spin2 J[hz]
+Jmatrix [[0,10],[10,0]] # Jmatrix in python format.
+
+
+# Notes
+Either Jmatrix or J statments are allowed. Not both.
+Spin statements can lack all the relaxation times, or have a _ instead.
+If relax time not defined, it needs to use the global molecule time.
+These are also optional, but if they lack, the individual spin lifetimes need to be all there.
+
+GENERAL can alos not be there.
