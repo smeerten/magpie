@@ -250,17 +250,59 @@ class sample():
                 intenNew = inten * distr[pos]
                 freqNew = freq + shift
                 yield [freqNew,intenNew,T1,T2]
-            
+
+
+def loadSampleFile(loc):
+    with open(loc,'r') as f:
+        lines = [x.strip() for x in f.readlines()]
+
+    if lines[0] != '###SAMPLE###':
+        raise Exception('Incorrect first line') 
+    
+    # Initialize vars
+    mainAmount = 1
+    if lines[1].startswith('amount'):
+        mainAmount = float(lines[1].split()[1])
+
+    molPos = [x for x in range(len(lines)) if lines[x] == '###MOLECULE###']
+    for val in molPos:
+        lin = lines[val+1:]
+        molecule = dict()
+        molecule['spins'] = []
+        for elem in lin:
+            if elem.startswith('amount'):
+                molecule['amount'] = float(elem.split()[1]) * mainAmount
+            elif elem.startswith('T1 '):
+                molecule['T1'] = float(elem.split()[1])
+            elif elem.startswith('T2 '):
+                molecule['T2'] = float(elem.split()[1])
+            elif elem.startswith('T2prime '):
+                molecule['T2prime'] = float(elem.split()[1])
+            elif elem.startswith('spin '):
+                spinelem = elem.split()[1:]
+                if len(spinelem) == 3:
+                    iso, shift, multi = spinelem
+                    shift = float(shift)
+                    multi = int(multi)
+                    molecule['spins'].append([iso,shift,multi])
+
+
+
+    print(molecule)
+
+        
 
 
 
 if __name__ == '__main__':
 
     # Some test code
-    tube = sample()
-    tube.addMolecule([('1H',0,1),('1H',1,1),('13C',1,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]),1,3,1,1)
-    elems = tube.expandSystems(1,'1H',['13C',0,10000])
-    elem2 = tube.expandBroadening(elems)
+    loadSampleFile(r'TestFiles/Ethanol.txt')
+
+    #tube = sample()
+    #tube.addMolecule([('1H',0,1),('1H',1,1),('13C',1,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]),1,3,1,1)
+    #elems = tube.expandSystems(1,'1H',['13C',0,10000])
+    #elem2 = tube.expandBroadening(elems)
 
 
     
