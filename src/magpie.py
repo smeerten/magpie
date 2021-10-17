@@ -31,6 +31,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 import loadIsotopes
+import simulator
 VERSION = '0.0'
 
 ISOTOPES = loadIsotopes.getIsotopes('IsotopeProperties')
@@ -43,6 +44,8 @@ class MainProgram(QtWidgets.QMainWindow):
         #self.setAcceptDrops(True)
         self.main_widget = QtWidgets.QWidget(self)
         self.setCentralWidget(self.main_widget)
+
+        self.simulator = simulator.Simulator()
         
         self.mainFrame = QtWidgets.QGridLayout(self.main_widget)
         self.spectrometerFrame = SpectrometerFrame(self)
@@ -55,16 +58,33 @@ class MainProgram(QtWidgets.QMainWindow):
         self.mainFrame.setRowStretch(0, 1)
         self.exportFrame = ExportFrame(self)
         self.mainFrame.addWidget(self.exportFrame,2,0,1,2)
-
-
         self.resize(800, 700)
         self.show()
 
+    def loadPulseSeq(self):
+        fname, ftype = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '../pulseSeqs/', 'Pulse sequence (*.csv)')
+        if fname:
+            self.simulator.loadPulseSeq(fname)
+            self.drawPulseSeq()
+
+    def drawPulseSeq(self):
+        self.plotFrame.drawPulseSeq(self.simulator.settings['observe'], self.simulator.pulseSeq)
+        self.paramFrame.setPulseSeq(self.simulator.pulseSeq)
+        
+    def getPulseSeq(self):
+        return self.simulator.pulseSeq
+
+    def getSettings(self):
+        return self.simulator.settings
+    
+    def simulate(self):
+        parameters = self.paramFrame.getParameters()
+
 
 class ExportFrame(QtWidgets.QWidget):
-    def __init__(self, parent):
-        super(ExportFrame, self).__init__(parent)
-        self.father = parent
+    def __init__(self, main):
+        super(ExportFrame, self).__init__(main)
+        self.main = main
         grid = QtWidgets.QGridLayout(self)
         self.setLayout(grid)
         self.exportFIDButton = QtWidgets.QPushButton('Export FID')
@@ -77,19 +97,28 @@ class ExportFrame(QtWidgets.QWidget):
 
 
 class ParameterFrame(QtWidgets.QTabWidget):
-    def __init__(self, parent):
-        super(ParameterFrame, self).__init__(parent)
-        self.father = parent
+    def __init__(self, main):
+        super(ParameterFrame, self).__init__(main)
+        self.main = main
         self.parWidgets = []
-        self.addSaturation('Saturation')
-        self.addDelay('D1')
-        self.addPulse('P1')
-        self.addShapedPulse('P2')
-        self.addAcq('Acquisition')
         self.currentChanged.connect(self.tabChanged)
 
+    def setPulseSeq(self, pulseSeq):
+        self.reset()
+        if pulseSeq is None:
+            return
+        for ind, pulseStep in pulseSeq.iterrows():
+            if pulseStep['type'] == 'sat':
+                self.addSaturation(pulseStep['name'])
+            elif pulseStep['type'] == 'delay':
+                self.addDelay(pulseStep['name'])
+            elif pulseStep['type'] == 'pulse':
+                self.addPulse(pulseStep['name'])
+            elif pulseStep['type'] == 'FID':
+                self.addAcq(pulseStep['name'])
+        
     def tabChanged(self,index):
-        self.father.plotFrame.sequenceFrame.highlightElement(index)
+        self.main.plotFrame.sequenceFrame.highlightElement(index)
        
     def addDelay(self,title):
         self.parWidgets.append(DelayWidget(self))
@@ -119,7 +148,6 @@ class ParameterFrame(QtWidgets.QTabWidget):
 
     def reset(self):
         self.parWidgets = []
-        print(self.count())
         for _ in range(self.count()):
             self.removeTab(0)
 
@@ -212,16 +240,19 @@ class AcqWidget(ParameterWidget):
 
 
 class PlotFrame(QtWidgets.QTabWidget):
-    def __init__(self, parent):
-        super(PlotFrame, self).__init__(parent)
-        self.father = parent
+    def __init__(self, main):
+        super(PlotFrame, self).__init__(main)
+        self.main = main
         self.specFrame = SpecPlotFrame(self)
-        self.specFrame.plot([-1,-2],[3,4])
+        self.specFrame.plot([-1, -2], [3, 4])
         self.fidFrame = FidPlotFrame(self)
-        self.sequenceFrame = SequenceDiagram(self)
-        self.addTab(self.specFrame,'Spectrum')
-        self.addTab(self.fidFrame,'FID')
-        self.addTab(self.sequenceFrame,'Pulse Sequence')
+        self.sequenceFrame = SequenceDiagram(self, self.main)
+        self.addTab(self.specFrame, 'Spectrum')
+        self.addTab(self.fidFrame, 'FID')
+        self.addTab(self.sequenceFrame, 'Pulse Sequence')
+
+    def drawPulseSeq(self, *args):
+        self.sequenceFrame.drawPulseSeq(*args)
 
 
 class AbstractPlotFrame(QtWidgets.QWidget):
@@ -259,24 +290,34 @@ class SequenceDiagram(AbstractPlotFrame):
     FONTSIZE = 12
     TEXTHEIGHT = 1.1
 
-    def __init__(self, parent):
-        super(SequenceDiagram, self).__init__(parent)
+    def __init__(self, plotframe, main):
+        super(SequenceDiagram, self).__init__(plotframe)
         self._setRelLinewidth()
-        self.father = parent
+        self.plotframe = plotframe
+        self.main = main
         self.ax.axis('off')
         self.xpos = 0
         self.elems = []
         self.backElems = [] #Holds transparent background images
         self.canvas.mpl_connect('pick_event', self.pickHandler)
-        self.setIsotope('1H')
-        self.drawSaturation('Sat.')
-        self.drawDelay('RD')
-        self.drawPulse('p1')
-        self.drawShapedPulse('p2')
-        self.drawFid('Acq')
+
+    def drawPulseSeq(self, isotope, pulseSeq):
+        self.resetPlot()
+        self.setIsotope(isotope)
+        if pulseSeq is None:
+            return
+        for ind, pulseStep in pulseSeq.iterrows():
+            if pulseStep['type'] == 'sat':
+                self.drawSaturation(pulseStep['name'])
+            elif pulseStep['type'] == 'delay':
+                self.drawDelay(pulseStep['name'])
+            elif pulseStep['type'] == 'pulse':
+                self.drawPulse(pulseStep['name'])
+            elif pulseStep['type'] == 'FID':
+                self.drawAcq(pulseStep['name'])
         self.ax.set_xlim([-1,10])
         self.ax.set_ylim([-1,1.5])
-
+        
     def _setRelLinewidth(self):
         linescaler = self.ax.transData.transform([(0, 0), (1, 1)])
         linescaler = linescaler[0][0] - linescaler[0][1]
@@ -328,7 +369,7 @@ class SequenceDiagram(AbstractPlotFrame):
         self._addBackgroundRect(self.DELAYW)
         self.xpos += self.DELAYW + self.relLineWidth
 
-    def drawFid(self,text=None):
+    def drawAcq(self,text=None):
         samples = 100
         T2 = 0.3
         xdata = np.linspace(0,1,samples)
@@ -358,7 +399,7 @@ class SequenceDiagram(AbstractPlotFrame):
             else:
                 elem[0].set_color(elem[1])
         self.canvas.draw()
-        self.father.father.paramFrame.setCurrentIndex(pos)
+        self.main.paramFrame.setCurrentIndex(pos)
 
     def resetPlot(self):
         AbstractPlotFrame.resetPlot(self)
@@ -390,9 +431,9 @@ class SpecPlotFrame(AbstractPlotFrame):
 
 
 class SpectrometerFrame(QtWidgets.QFrame):
-    def __init__(self, parent):
-        super(SpectrometerFrame, self).__init__(parent)
-        self.father = parent
+    def __init__(self, main):
+        super(SpectrometerFrame, self).__init__(main)
+        self.main = main
         self.setFrameShape(1)
         grid = QtWidgets.QGridLayout(self)
         self.setLayout(grid)
@@ -405,6 +446,7 @@ class SpectrometerFrame(QtWidgets.QFrame):
         self.sampleLabel.setAlignment(QtCore.Qt.AlignCenter)
         grid.addWidget(self.sampleLabel,2,0,1,2)
         self.loadSequence = QtWidgets.QPushButton('Load pulse sequence')
+        self.loadSequence.clicked.connect(self.main.loadPulseSeq)
         grid.addWidget(self.loadSequence,3,0,1,2)
         self.sequenceLabel = QtWidgets.QLabel('<i>No sequence</i>')
         self.sequenceLabel.setAlignment(QtCore.Qt.AlignCenter)
@@ -430,7 +472,7 @@ class SpectrometerFrame(QtWidgets.QFrame):
         grid.addWidget(self.b0Drop,7,1)
 
         self.acquirePush = QtWidgets.QPushButton('Acquire')
-        self.acquirePush.clicked.connect(self.simulate)
+        self.acquirePush.clicked.connect(self.main.simulate)
         grid.addWidget(self.acquirePush,9,0,1,2)
 
         #grid.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
@@ -438,9 +480,6 @@ class SpectrometerFrame(QtWidgets.QFrame):
         
         grid.setAlignment(QtCore.Qt.AlignLeft)
         self.grid = grid
-
-    def simulate(self):
-        parameters = self.father.paramFrame.getParameters()
 
 
 if __name__ == '__main__':

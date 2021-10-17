@@ -39,12 +39,16 @@ def diffEq(t, M, B, T1, T2, M0):
 class Simulator():
     
     def __init__(self, pulseSeq=None, settings=None, sample=None):
-        self.settings = settings
+        if settings is None:
+            self.settings = {'B0':14.1, 'observe':'1H'}
+        else:
+            self.settings = settings
         self.sample = sample
         self.allSpins = None
         self.phaseIter = 0
         self.arrayIter = 0
         self.FID = []
+        self.pulseSeq = None
         if pulseSeq is not None:
             self.loadPulseSeq(pulseSeq)
         
@@ -62,7 +66,7 @@ class Simulator():
         """
         Loads the pulse sequence from a given csv file
         """
-        pulseSeq = pd.read_csv(name, index_col='name')
+        pulseSeq = pd.read_csv(name, index_col=['name','type'])
         pulseSeq = pulseSeq.applymap(lambda x: ast.literal_eval(x) if isinstance(x,str) else x)
         pulseSeq = pulseSeq.reset_index()
         self.pulseSeq = pulseSeq
@@ -85,7 +89,7 @@ class Simulator():
         M = np.array([0, 0, amp])
         scanResults = []
         for ind,pulseStep in self.pulseSeq.iterrows():
-            if pulseStep['name'] == 'pulse':
+            if pulseStep['type'] == 'pulse':
                 rf = pulseStep['amp']
                 if hasattr(rf, '__iter__'):
                     rf = rf[self.arrayIter % len(rf)]
@@ -99,14 +103,14 @@ class Simulator():
             timeStep = pulseStep['time']
             if hasattr(timeStep, '__iter__'):
                 timeStep = timeStep[self.arrayIter % len(timeStep)]
-            if pulseStep['name'] == 'FID':
+            if pulseStep['type'] == 'FID':
                 npoints = int(pulseStep['amp'])
                 t_eval = np.linspace(0, timeStep, npoints)
             else:
                 t_eval = None
             sol = solve_ivp(diffEq, (0, timeStep), M, t_eval=t_eval, args=(B, T1, T2, amp), vectorized=True)
             M = sol.y[:,-1]
-            if pulseStep['name'] == 'FID':
+            if pulseStep['type'] == 'FID':
                 # TODO: proper scaling factor for noise factor
                 noiseFactor = 1.0e-4/(t_eval[1]-t_eval[0])
                 noise = 1j*np.random.normal(0, noiseFactor, len(sol.y[0]))
