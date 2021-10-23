@@ -19,6 +19,7 @@
 
 import numpy as np
 import loadIsotopes
+from safeEval import safeEval
 
 ISOTOPES = loadIsotopes.getIsotopes('IsotopeProperties')
 GAMMASCALE = 42.576e6/100
@@ -264,9 +265,12 @@ def loadSampleFile(loc):
     if lines[1].startswith('amount'):
         mainAmount = float(lines[1].split()[1])
 
+    tube = sample()     
+
     molPos = [x for x in range(len(lines)) if lines[x] == '###MOLECULE###']
-    for val in molPos:
-        lin = lines[val+1:]
+    molPosEnd = molPos[1:] + [None]
+    for start, end in zip(molPos,molPosEnd):
+        lin = lines[start+1:end]
         molecule = dict()
         molecule['spins'] = []
         for elem in lin:
@@ -282,27 +286,57 @@ def loadSampleFile(loc):
                 spinelem = elem.split()[1:]
                 if len(spinelem) == 3:
                     iso, shift, multi = spinelem
-                    shift = float(shift)
-                    multi = int(multi)
-                    molecule['spins'].append([iso,shift,multi])
+                    relax = [None,None,None]
+                elif len(spinelem) == 5:
+                    iso, shift, multi, T1, T2, T2prime = spinelem
+                    relax = []
+                    for val in [T1,T2,T2prime]:
+                        if val == '_':
+                            relax.append(None)
+                        else:
+                            relax.append(float(val))
+                shift = float(shift)
+                multi = int(multi)
+                molecule['spins'].append([iso,shift,multi,relax])
+            elif elem.startswith('J '):
+                spin1, spin2, Jval = elem.split()[1:]
+                if not 'J' in molecule:
+                    molecule['J'] = []
+                molecule['J'].append([int(spin1),int(spin2),float(Jval)])
+            elif elem.startswith('Jmatrix '):
+                elem = elem[8:].strip()
+                molecule['Jmatrix'] = np.array(safeEval(elem))
+                
+        # Check molecule
+        nspins = len(molecule['spins'])
+        if 'J' in molecule and 'Jmatrix' in molecule:
+            raise Exception('Only J or Jmatrix statement allowed.')
+        if 'J' in molecule:
+            Jmatrix = np.zeros([nspins,nspins])
+            for J in molecule['J']:
+                if J[0] > nspins or J[0] < 1 or J[1] > nspins or J[1] < 1:
+                    raise Exception('J spin index out of bounds.')
+                Jmatrix[J[0]-1,J[1]-1] = J[2]
+            molecule['Jmatrix'] = Jmatrix
+        elif 'Jmatrix' in molecule:
+            if molecule['Jmatrix'].shape != (nspins,nspins):
+                raise Exception('Jmaxtrix incorrect size')
+        tube.addMolecule(molecule['spins'],molecule['Jmatrix'],molecule['amount'],molecule['T1'],molecule['T2'],molecule['T2prime'])
+        print(molecule)
 
-
-
-    print(molecule)
-
-        
+    return tube
 
 
 
 if __name__ == '__main__':
 
     # Some test code
-    loadSampleFile(r'TestFiles/Ethanol.txt')
+    tube = loadSampleFile(r'TestFiles/DoubleEthanol.txt')
 
     #tube = sample()
     #tube.addMolecule([('1H',0,1),('1H',1,1),('13C',1,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]),1,3,1,1)
-    #elems = tube.expandSystems(1,'1H',['13C',0,10000])
-    #elem2 = tube.expandBroadening(elems)
+    # elems = tube.expandSystems(1,'1H',['13C',0,10000])
+    # elem2 = tube.expandBroadening(elems)
 
 
     

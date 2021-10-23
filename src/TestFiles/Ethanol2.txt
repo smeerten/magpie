@@ -1,0 +1,11 @@
+###SAMPLE###
+amount 1
+###MOLECULE###
+amount 1 
+T1 5
+T2 1
+T2prime 1
+spin 1H 1.25 3
+spin 1H 3.73 2
+spin 1H 4.85 1 
+Jmatrix [[0,10,0],[10,0,0],[0,0,0]]

@@ -23,6 +23,7 @@ import os.path
 from PyQt5 import QtGui, QtCore, QtWidgets
 import sys
 import numpy as np
+from safeEval import safeEval
 
 import matplotlib
 # First import matplotlib and Qt
@@ -150,41 +151,6 @@ class ParameterFrame(QtWidgets.QTabWidget):
         self.parWidgets = []
         for _ in range(self.count()):
             self.removeTab(0)
-
-def safeEval(inp, Type='All'):
-    """
-    Creates a more restricted eval environment.
-
-    Parameters
-    ----------
-    inp : str
-        String to evaluate.
-    Type : {'All', 'FI', 'C'}, optional
-        Type of expected output. 'All' will return all types, 'FI' will return a float or int, and 'C' will return a complex number.
-        By default Type is set to 'All'
-
-    Returns
-    -------
-    Object
-        The result of the evaluated string.
-    """
-    env = vars(np).copy()
-    try:
-        val = eval(inp, env)
-        if isinstance(val, str):
-            return None
-        if Type == 'All':
-            return val
-        if Type == 'FI':  #single float/int type
-            if isinstance(val, (float, int)) and not np.isnan(val) and not np.isinf(val):
-                return val
-            return None
-        if Type == 'C': #single complex number
-            if isinstance(val, (float, int, complex)) and not np.isnan(val) and not np.isinf(val):
-                return val
-            return None
-    except Exception:
-        return None
 
 class ParameterWidget(QtWidgets.QWidget):
     def __init__(self, parent):
