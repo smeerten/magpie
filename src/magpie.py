@@ -23,6 +23,7 @@ import os.path
 from PyQt5 import QtGui, QtCore, QtWidgets
 import sys
 import numpy as np
+import pandas as pd
 from safeEval import safeEval
 
 import matplotlib
@@ -110,13 +111,13 @@ class ParameterFrame(QtWidgets.QTabWidget):
             return
         for ind, pulseStep in pulseSeq.iterrows():
             if pulseStep['type'] == 'sat':
-                stepWidget = ParameterWidget(self)
+                stepWidget = ParameterWidget(self, pulseStep)
             elif pulseStep['type'] == 'delay':
-                stepWidget = DelayWidget(self)
+                stepWidget = DelayWidget(self, pulseStep)
             elif pulseStep['type'] in ['pulse', 'shapedPulse']:
-                stepWidget = PulseWidget(self)
+                stepWidget = PulseWidget(self, pulseStep)
             elif pulseStep['type'] == 'FID':
-                stepWidget = AcqWidget(self)
+                stepWidget = AcqWidget(self, pulseStep)
             self.parWidgets.append(stepWidget)
             self.addTab(self.parWidgets[-1], pulseStep['name'])
         
@@ -124,10 +125,8 @@ class ParameterFrame(QtWidgets.QTabWidget):
         self.main.plotFrame.sequenceFrame.highlightElement(index)
 
     def getParameters(self):
-        pars = []
-        for wid in self.parWidgets:
-            pars.append(wid.returnValues())
-        return pars
+        pars = [wid.returnValues() for wid in self.parWidgets]
+        return pd.DataFrame(pars)
 
     def reset(self):
         self.parWidgets = []
@@ -135,58 +134,71 @@ class ParameterFrame(QtWidgets.QTabWidget):
             self.removeTab(0)
 
 class ParameterWidget(QtWidgets.QWidget):
-    def __init__(self, parent):
+    def __init__(self, parent, pulseStep):
         super(ParameterWidget, self).__init__(parent)
+        self.pulseStep = pulseStep
         self.grid = QtWidgets.QGridLayout(self)
         self.grid.setColumnStretch(10, 1)
-        self.params = []
 
     def returnValues(self):
-        values = []
-        for elem in self.params:
-            values.append(safeEval(elem.text())) #Needs safe eval, and array detection.
-        return values
+        return self.pulseStep
 
 class DelayWidget(ParameterWidget):
-    def __init__(self, parent):
-        super(DelayWidget, self).__init__(parent)
-        self.grid.addWidget(QtWidgets.QLabel('Duration [s]'),0,0)
-        self.delay = QtWidgets.QLineEdit('1')
-        self.params.append(self.delay)
-        self.grid.addWidget(self.delay,0,1)
+    def __init__(self, parent, pulseStep):
+        super(DelayWidget, self).__init__(parent, pulseStep)
+        self.grid.addWidget(QtWidgets.QLabel('Duration [s]'), 0, 0)
+        self.time = QtWidgets.QLineEdit(str(self.pulseStep['time']))
+        self.grid.addWidget(self.time, 0, 1)
+
+    def returnValues(self):
+        self.pulseStep['time'] = safeEval(self.time.text())
+        return self.pulseStep
 
 class PulseWidget(ParameterWidget):
-    def __init__(self, parent):
-        super(PulseWidget, self).__init__(parent)
-        self.grid.addWidget(QtWidgets.QLabel('Duration [µs]'),0,0)
-        self.delay = QtWidgets.QLineEdit('1')
-        self.params.append(self.delay)
-        self.grid.addWidget(self.delay,0,1)
+    def __init__(self, parent, pulseStep):
+        super(PulseWidget, self).__init__(parent, pulseStep)
+        self.grid.addWidget(QtWidgets.QLabel('Duration [µs]'), 0, 0)
+        self.time = QtWidgets.QLineEdit(str(1e6*self.pulseStep['time']))
+        self.grid.addWidget(self.time, 0, 1)
 
-        self.grid.addWidget(QtWidgets.QLabel('Amplitude [kHz]'),0,2)
-        self.amplitude = QtWidgets.QLineEdit('1')
-        self.params.append(self.amplitude)
-        self.grid.addWidget(self.amplitude,0,3)
+        self.grid.addWidget(QtWidgets.QLabel('Amplitude [kHz]'), 0, 2)
+        self.amplitude = QtWidgets.QLineEdit(str(1e-3*self.pulseStep['amp']))
+        self.grid.addWidget(self.amplitude, 0, 3)
+
+    def returnValues(self):
+        timeVal = safeEval(self.time.text())
+        if isinstance(timeVal, float):
+            self.pulseStep['time'] = 1e-6 * timeVal
+        else:
+            self.pulseStep['time'] = [1e-6*i for i in timeVal]
+        ampVal = safeEval(self.amplitude.text())
+        if isinstance(ampVal, float):
+            self.pulseStep['amp'] = 1e3 * ampVal
+        else:
+            self.pulseStep['amp'] = [1e3*i for i in ampVal]
+        return self.pulseStep        
 
 class AcqWidget(ParameterWidget):
-    def __init__(self, parent):
-        super(AcqWidget, self).__init__(parent)
-        self.grid.addWidget(QtWidgets.QLabel('Spectral Width [kHz]'),0,0)
-        self.sw = QtWidgets.QLineEdit('100')
-        self.params.append(self.sw)
-        self.grid.addWidget(self.sw,0,1)
+    # TODO: recalculate the values after filling in a field
+    def __init__(self, parent, pulseStep):
+        super(AcqWidget, self).__init__(parent, pulseStep)
+        self.grid.addWidget(QtWidgets.QLabel('Spectral Width [kHz]'), 0, 0)
+        self.sw = QtWidgets.QLineEdit(str(1e-3*self.pulseStep['amp']/self.pulseStep['time']))
+        self.grid.addWidget(self.sw, 0, 1)
 
-        self.grid.addWidget(QtWidgets.QLabel('# of points'),0,2)
-        self.np = QtWidgets.QLineEdit('1024')
-        self.params.append(self.np)
-        self.grid.addWidget(self.np,0,3)
+        self.grid.addWidget(QtWidgets.QLabel('# of points'), 0, 2)
+        self.np = QtWidgets.QLineEdit(str(int(self.pulseStep['amp'])))
+        self.grid.addWidget(self.np, 0, 3)
 
-        self.grid.addWidget(QtWidgets.QLabel('Acq. time [s]'),0,4)
-        self.acqTime = QtWidgets.QLineEdit('1')
-        self.params.append(self.acqTime)
-        self.grid.addWidget(self.acqTime,0,5)
+        self.grid.addWidget(QtWidgets.QLabel('Acq. time [s]'), 0, 4)
+        self.time = QtWidgets.QLineEdit(str(self.pulseStep['time']))
+        self.grid.addWidget(self.time, 0, 5)
 
-
+    def returnValues(self):
+        self.pulseStep['time'] = float(self.time.text())
+        self.pulseStep['amp'] = int(self.np.text())
+        return self.pulseStep
+    
 class PlotFrame(QtWidgets.QTabWidget):
     def __init__(self, main):
         super(PlotFrame, self).__init__(main)
