@@ -104,42 +104,24 @@ class ParameterFrame(QtWidgets.QTabWidget):
         self.parWidgets = []
         self.currentChanged.connect(self.tabChanged)
 
-    def setPulseSeq(self, pulseSeq):
+    def setPulseSeq(self, pulseSeq, **kwargs):
         self.reset()
         if pulseSeq is None:
             return
         for ind, pulseStep in pulseSeq.iterrows():
             if pulseStep['type'] == 'sat':
-                self.addSaturation(pulseStep['name'])
+                stepWidget = ParameterWidget(self)
             elif pulseStep['type'] == 'delay':
-                self.addDelay(pulseStep['name'])
-            elif pulseStep['type'] == 'pulse':
-                self.addPulse(pulseStep['name'])
+                stepWidget = DelayWidget(self)
+            elif pulseStep['type'] in ['pulse', 'shapedPulse']:
+                stepWidget = PulseWidget(self)
             elif pulseStep['type'] == 'FID':
-                self.addAcq(pulseStep['name'])
+                stepWidget = AcqWidget(self)
+            self.parWidgets.append(stepWidget)
+            self.addTab(self.parWidgets[-1], pulseStep['name'])
         
-    def tabChanged(self,index):
+    def tabChanged(self, index):
         self.main.plotFrame.sequenceFrame.highlightElement(index)
-       
-    def addDelay(self,title):
-        self.parWidgets.append(DelayWidget(self))
-        self.addTab(self.parWidgets[-1],title)
-
-    def addPulse(self,title):
-        self.parWidgets.append(PulseWidget(self))
-        self.addTab(self.parWidgets[-1],title)
-
-    def addShapedPulse(self,title):
-        self.parWidgets.append(PulseWidget(self))
-        self.addTab(self.parWidgets[-1],title)
-
-    def addAcq(self,title):
-        self.parWidgets.append(AcqWidget(self))
-        self.addTab(self.parWidgets[-1],title)
-
-    def addSaturation(self,title):
-        self.parWidgets.append(ParameterWidget(self))
-        self.addTab(self.parWidgets[-1],title)
 
     def getParameters(self):
         pars = []
