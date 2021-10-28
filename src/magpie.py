@@ -34,6 +34,7 @@ from matplotlib.figure import Figure
 
 import loadIsotopes
 import simulator
+import sample
 VERSION = '0.0'
 
 ISOTOPES = loadIsotopes.getIsotopes('IsotopeProperties')
@@ -48,7 +49,8 @@ class MainProgram(QtWidgets.QMainWindow):
         self.setCentralWidget(self.main_widget)
 
         self.simulator = simulator.Simulator()
-        
+        self.pulseSeqName = None
+        self.sampleName = None
         self.mainFrame = QtWidgets.QGridLayout(self.main_widget)
         self.spectrometerFrame = SpectrometerFrame(self)
         self.mainFrame.addWidget(self.spectrometerFrame,0,0)
@@ -67,8 +69,17 @@ class MainProgram(QtWidgets.QMainWindow):
         fname, ftype = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '../pulseSeqs/', 'Pulse sequence (*.csv)')
         if fname:
             self.simulator.loadPulseSeq(fname)
+            self.pulseSeqName = os.path.splitext(os.path.basename(fname))[0]
             self.drawPulseSeq()
+            self.spectrometerFrame.upd()
 
+    def loadSample(self):
+        fname, ftype = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '../samples/', 'Sample (*.txt)')
+        if fname:
+            self.simulator.setSample(sample.loadSampleFile(fname))
+            self.sampleName = os.path.splitext(os.path.basename(fname))[0]
+            self.spectrometerFrame.upd()
+            
     def drawPulseSeq(self):
         self.plotFrame.drawPulseSeq(self.simulator.settings['observe'], self.simulator.pulseSeq)
         self.paramFrame.setPulseSeq(self.simulator.pulseSeq)
@@ -401,14 +412,15 @@ class SpectrometerFrame(QtWidgets.QFrame):
         self.title.setAlignment(QtCore.Qt.AlignCenter)
         grid.addWidget(self.title,0,0,1,2)
         self.loadSample = QtWidgets.QPushButton('Load sample')
+        self.loadSample.clicked.connect(self.main.loadSample)
         grid.addWidget(self.loadSample,1,0,1,2)
-        self.sampleLabel = QtWidgets.QLabel('<i>No sample</i>')
+        self.sampleLabel = QtWidgets.QLabel()
         self.sampleLabel.setAlignment(QtCore.Qt.AlignCenter)
         grid.addWidget(self.sampleLabel,2,0,1,2)
         self.loadSequence = QtWidgets.QPushButton('Load pulse sequence')
         self.loadSequence.clicked.connect(self.main.loadPulseSeq)
         grid.addWidget(self.loadSequence,3,0,1,2)
-        self.sequenceLabel = QtWidgets.QLabel('<i>No sequence</i>')
+        self.sequenceLabel = QtWidgets.QLabel()
         self.sequenceLabel.setAlignment(QtCore.Qt.AlignCenter)
         grid.addWidget(self.sequenceLabel,4,0,1,2)
 
@@ -440,8 +452,19 @@ class SpectrometerFrame(QtWidgets.QFrame):
         
         grid.setAlignment(QtCore.Qt.AlignLeft)
         self.grid = grid
+        self.upd()
 
+    def upd(self):
+        if self.main.sampleName is None:
+            self.sampleLabel.setText('<i>No sample</i>')
+        else:
+            self.sampleLabel.setText('<i>' + self.main.sampleName + '</i>')
+        if self.main.pulseSeqName is None:
+            self.sequenceLabel.setText('<i>No sequence</i>')
+        else:
+            self.sequenceLabel.setText('<i>' + self.main.pulseSeqName + '</i>')
 
+        
 if __name__ == '__main__':
 
     root = QtWidgets.QApplication(sys.argv)

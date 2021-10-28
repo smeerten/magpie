@@ -62,6 +62,9 @@ class Simulator():
         self.phaseIter = 0
         self.arrayIter += 1
 
+    def setSample(self, sample):
+        self.sample = sample
+        
     def loadPulseSeq(self, name):
         """
         Loads the pulse sequence from a given csv file
