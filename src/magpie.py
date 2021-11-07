@@ -214,9 +214,16 @@ class PlotFrame(QtWidgets.QTabWidget):
     def __init__(self, main):
         super(PlotFrame, self).__init__(main)
         self.main = main
+        ### Begin example data ###
+        t = np.linspace(0, 1, 512)
+        fid = np.exp(70j*t-6*t) + 0.8*np.exp(-250j*t-6*t)
+        freq = np.fft.fftshift(np.fft.fftfreq(len(t), t[1]-t[0]))
+        spec = np.fft.fftshift(np.fft.fft(fid))
+        ### End example data ###
         self.specFrame = SpecPlotFrame(self)
-        self.specFrame.plot([-1, -2], [3, 4])
+        self.specFrame.plot(freq, np.real(spec))
         self.fidFrame = FidPlotFrame(self)
+        self.fidFrame.plot(t, np.real(fid))
         self.sequenceFrame = SequenceDiagram(self, self.main)
         self.addTab(self.specFrame, 'Spectrum')
         self.addTab(self.fidFrame, 'FID')
