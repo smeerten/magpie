@@ -225,9 +225,9 @@ class PlotFrame(QtWidgets.QTabWidget):
         self.fidFrame = FidPlotFrame(self)
         self.fidFrame.plot(t, np.real(fid))
         self.sequenceFrame = SequenceDiagram(self, self.main)
-        self.addTab(self.specFrame, 'Spectrum')
-        self.addTab(self.fidFrame, 'FID')
         self.addTab(self.sequenceFrame, 'Pulse Sequence')
+        self.addTab(self.fidFrame, 'FID')
+        self.addTab(self.specFrame, 'Spectrum')
 
     def drawPulseSeq(self, *args):
         self.sequenceFrame.drawPulseSeq(*args)
