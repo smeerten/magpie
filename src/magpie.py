@@ -92,8 +92,16 @@ class MainProgram(QtWidgets.QMainWindow):
     
     def simulate(self):
         parameters = self.paramFrame.getParameters()
+        self.simulator.setPulseSeq(parameters)
+        self.simulator.reset()
+        self.simulator.scan()
+        self.plotData()
 
+    def plotData(self):
+        time, FIDarray = self.simulator.getData()
+        self.plotFrame.plotData(time, FIDarray)
 
+        
 class ExportFrame(QtWidgets.QWidget):
     def __init__(self, main):
         super(ExportFrame, self).__init__(main)
@@ -178,12 +186,12 @@ class PulseWidget(ParameterWidget):
 
     def returnValues(self):
         timeVal = safeEval(self.time.text())
-        if isinstance(timeVal, float):
+        if isinstance(timeVal, (int, float)):
             self.pulseStep['time'] = 1e-6 * timeVal
         else:
             self.pulseStep['time'] = [1e-6*i for i in timeVal]
         ampVal = safeEval(self.amplitude.text())
-        if isinstance(ampVal, float):
+        if isinstance(ampVal, (int, float)):
             self.pulseStep['amp'] = 1e3 * ampVal
         else:
             self.pulseStep['amp'] = [1e3*i for i in ampVal]
@@ -211,19 +219,12 @@ class AcqWidget(ParameterWidget):
         return self.pulseStep
     
 class PlotFrame(QtWidgets.QTabWidget):
+    
     def __init__(self, main):
         super(PlotFrame, self).__init__(main)
         self.main = main
-        ### Begin example data ###
-        t = np.linspace(0, 1, 512)
-        fid = np.exp(70j*t-6*t) + 0.8*np.exp(-250j*t-6*t)
-        freq = np.fft.fftshift(np.fft.fftfreq(len(t), t[1]-t[0]))
-        spec = np.fft.fftshift(np.fft.fft(fid))
-        ### End example data ###
         self.specFrame = SpecPlotFrame(self)
-        self.specFrame.plot(freq, np.real(spec))
         self.fidFrame = FidPlotFrame(self)
-        self.fidFrame.plot(t, np.real(fid))
         self.sequenceFrame = SequenceDiagram(self, self.main)
         self.addTab(self.sequenceFrame, 'Pulse Sequence')
         self.addTab(self.fidFrame, 'FID')
@@ -232,28 +233,26 @@ class PlotFrame(QtWidgets.QTabWidget):
     def drawPulseSeq(self, *args):
         self.sequenceFrame.drawPulseSeq(*args)
 
-
+    def plotData(self, time, FIDarray):
+        self.fidFrame.resetPlot()
+        self.specFrame.resetPlot()
+        freq = np.fft.fftshift(np.fft.fftfreq(len(time), time[1]-time[0]))
+        spec = np.fft.fftshift(np.fft.fft(FIDarray, axis=1), axes=1)
+        self.fidFrame.plot(time, np.real(FIDarray).T)
+        self.specFrame.plot(freq, np.real(spec).T)
+        
 class AbstractPlotFrame(QtWidgets.QWidget):
-    SPEC = False
     def __init__(self, parent):
         super(AbstractPlotFrame, self).__init__(parent)
         self.fig = Figure()
         self.canvas = FigureCanvas(self.fig)
         grid = QtWidgets.QGridLayout(self)
         grid.addWidget(self.canvas, 0, 0)
-        self.ax = self.fig.add_subplot(111)
-
-    def plot(self,xdata,ydata):
-        self.ax.plot(xdata,ydata)
-        self.canvas.draw()
-        if self.SPEC:
-            self.ax.set_xlim(np.max(xdata), np.min(xdata))
-        else:
-            self.ax.set_xlim(np.min(xdata),np.max(xdata))
+        self.resetPlot()
 
     def resetPlot(self):
-        self.ax.cla()
-
+        self.fig.clf()
+        self.ax = self.fig.add_subplot(111)
 
 class SequenceDiagram(AbstractPlotFrame):
     PULSEW = 0.75
@@ -388,24 +387,26 @@ class SequenceDiagram(AbstractPlotFrame):
 
 
 class FidPlotFrame(AbstractPlotFrame):
-    def __init__(self, parent):
-        super(FidPlotFrame, self).__init__(parent)
+
+    def plot(self, xdata, ydata):
+        self.ax.plot(xdata, ydata)
+        self.ax.set_xlim(np.min(xdata), np.max(xdata))
         self.ax.set_xlabel('Time [s]')
         self.ax.set_ylabel('Intensity [arb. u.]')
+        self.canvas.draw()
 
 
 class SpecPlotFrame(AbstractPlotFrame):
-    SPEC = True
-    def __init__(self, parent):
-        super(SpecPlotFrame, self).__init__(parent)
+
+    def plot(self, xdata, ydata):
+        self.ax.plot(xdata, ydata)
         self.ax2 = self.ax.twiny()
+        self.ax.set_xlim(np.max(xdata), np.min(xdata))
+        self.ax2.set_xlim([np.max(xdata), np.min(xdata)])
         self.ax.set_xlabel('Shift [ppm]')
         self.ax.set_ylabel('Intensity [arb. u.]')
         self.ax2.set_xlabel('Frequency [kHz]')
-
-    def plot(self,xdata,ydata):
-        AbstractPlotFrame.plot(self,xdata,ydata)
-        self.ax2.set_xlim([100,-100])
+        self.canvas.draw()
 
 
 class SpectrometerFrame(QtWidgets.QFrame):

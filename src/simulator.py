@@ -40,23 +40,26 @@ class Simulator():
     
     def __init__(self, pulseSeq=None, settings=None, sample=None):
         if settings is None:
-            self.settings = {'B0':14.1, 'observe':'1H'}
+            self.settings = {'B0':7.0, 'observe':'1H'}
         else:
             self.settings = settings
         self.sample = sample
         self.allSpins = None
-        self.phaseIter = 0
-        self.arrayIter = 0
-        self.FID = []
         self.pulseSeq = None
         if pulseSeq is not None:
             self.loadPulseSeq(pulseSeq)
+        self.reset()
         
     def reset(self):
-        self.allSpins = np.array(list(self.sample.expandSystems(self.settings['B0'], self.settings['observe'])))
+        if self.sample is not None:
+            self.allSpins = np.array(list(self.sample.expandSystems(self.settings['B0'], self.settings['observe'])))
+        else:
+            self.allSpins = None
         self.phaseIter = 0
         self.arrayIter = 0
         self.FID = []
+        self.scaledFID = []
+        self.FIDtime = 0.0
 
     def step(self):
         self.phaseIter = 0
@@ -73,6 +76,15 @@ class Simulator():
         pulseSeq = pulseSeq.applymap(lambda x: ast.literal_eval(x) if isinstance(x,str) else x)
         pulseSeq = pulseSeq.reset_index()
         self.pulseSeq = pulseSeq
+
+    def setPulseSeq(self, pulseSeq):
+        self.pulseSeq = pulseSeq
+
+    def getData(self):
+        if len(self.scaledFID) == 0:
+            return [], []
+        t = np.linspace(0, self.FIDtime, len(self.scaledFID[0]))
+        return t, np.array(self.scaledFID)
         
     def scan(self):
         """
@@ -80,18 +92,21 @@ class Simulator():
         """
         for spinInfo in self.allSpins:
             Frequency, Intensity, T1, T2, T2prime = spinInfo
-            spinFID, newAmp = self.simulateSpin(Intensity, Frequency, T1, T2, len(self.allSpins))
+            spinFID, newAmp, self.FIDtime = self.simulateSpin(Intensity, Frequency, T1, T2, len(self.allSpins))
             spinInfo[1] = newAmp
             if len(self.FID) == self.arrayIter:
                 self.FID.append(spinFID)
+                self.scaledFID.append(self.FID[-1])
             else:
                 self.FID[self.arrayIter] += spinFID
+                self.scaledFID[self.arrayIter] = self.FID[self.arrayIter] / (self.phaseIter + 1)
         self.phaseIter += 1
                 
     def simulateSpin(self, amp, freq, T1, T2, numSpins):
         M = np.array([0, 0, amp])
         scanResults = []
-        for ind,pulseStep in self.pulseSeq.iterrows():
+        FIDtime = 0 
+        for ind, pulseStep in self.pulseSeq.iterrows():
             if pulseStep['type'] == 'pulse':
                 rf = pulseStep['amp']
                 if hasattr(rf, '__iter__'):
@@ -109,6 +124,7 @@ class Simulator():
             if pulseStep['type'] == 'FID':
                 npoints = int(pulseStep['amp'])
                 t_eval = np.linspace(0, timeStep, npoints)
+                FIDtime += timeStep
             else:
                 t_eval = None
             sol = solve_ivp(diffEq, (0, timeStep), M, t_eval=t_eval, args=(B, T1, T2, amp), vectorized=True)
@@ -123,14 +139,14 @@ class Simulator():
             scanResults = np.concatenate(scanResults)
         else:
             scanResults = np.array(scanResults)
-        return scanResults, M[2]
+        return scanResults, M[2], FIDtime
             
 
 if __name__ == '__main__':
     tube = sample.sample()
     tube.addMolecule([('1H',0,1),('1H',1,1),('13C',1,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]), 1, 0.3, 0.3, 1)
 
-    settings = {'B0':1.0, 'observe':'1H'}
+    settings = None # {'B0':1.0, 'observe':'1H'}
     pulseSeq = '../pulseSeqs/onePulse.csv'
     
     sim = Simulator(pulseSeq, settings, tube)
