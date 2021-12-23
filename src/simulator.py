@@ -65,6 +65,12 @@ class Simulator():
         self.phaseIter = 0
         self.arrayIter += 1
 
+    def setSettings(self, field=None, nuclei=None):
+        if field is None:
+            self.settings['B0'] = field
+        if nuclei is None:
+            self.settings['observe'] = nuclei
+        
     def setSample(self, sample):
         self.sample = sample
         

@@ -37,6 +37,8 @@ import simulator
 import sample
 VERSION = '0.0'
 
+TIMEDELAY = 200 # ms
+
 ISOTOPES = loadIsotopes.getIsotopes('IsotopeProperties')
 NUCLEI = [x for x in ISOTOPES.keys() if not x.startswith('-')]
 
@@ -51,6 +53,8 @@ class MainProgram(QtWidgets.QMainWindow):
         self.simulator = simulator.Simulator()
         self.pulseSeqName = None
         self.sampleName = None
+        self.numScans = 1
+        self.timer = None
         self.mainFrame = QtWidgets.QGridLayout(self.main_widget)
         self.spectrometerFrame = SpectrometerFrame(self)
         self.mainFrame.addWidget(self.spectrometerFrame,0,0)
@@ -91,12 +95,29 @@ class MainProgram(QtWidgets.QMainWindow):
         return self.simulator.settings
     
     def simulate(self):
+        self.stop()
         parameters = self.paramFrame.getParameters()
+        nuclei, field, self.numScans = self.spectrometerFrame.getSettings()
+        self.simulator.setSettings(field, nuclei)
         self.simulator.setPulseSeq(parameters)
         self.simulator.reset()
+        self.iScan = 0
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.simulateScan)
+        self.timer.start(TIMEDELAY)
+
+    def simulateScan(self):
+        self.iScan += 1
         self.simulator.scan()
         self.plotData()
+        if self.iScan >= self.numScans:
+            self.stop()
 
+    def stop(self):
+        if self.timer is not None:
+            self.timer.stop()
+            self.timer = None
+            
     def plotData(self):
         time, FIDarray = self.simulator.getData()
         self.plotFrame.plotData(time, FIDarray)
@@ -470,12 +491,17 @@ class SpectrometerFrame(QtWidgets.QFrame):
         self.decoupleLabel.setEnabled(False)
         grid.addWidget(self.decoupleDrop,6,1)
 
-
         grid.addWidget(QtWidgets.QLabel('B<sub>0</sub>:'),7,0)
         self.b0Drop = QtWidgets.QComboBox()
-        self.b0Drop.addItems(['7.0T','9.4T','11.7','14.1T','18.8T'])
+        self.b0List = [7.0, 9.4, 11.7, 14.1, 18.8]
+        self.b0Drop.addItems([f'{i:.1f}T' for i in self.b0List])
         grid.addWidget(self.b0Drop,7,1)
 
+        grid.addWidget(QtWidgets.QLabel('# Scans:'),8,0)
+        self.scanBox = QtWidgets.QSpinBox()
+        self.scanBox.setMinimum(1)
+        grid.addWidget(self.scanBox,8,1)
+        
         self.acquirePush = QtWidgets.QPushButton('Acquire')
         self.acquirePush.clicked.connect(self.main.simulate)
         grid.addWidget(self.acquirePush,9,0,1,2)
@@ -487,6 +513,12 @@ class SpectrometerFrame(QtWidgets.QFrame):
         self.grid = grid
         self.upd()
 
+    def getSettings(self):
+        nuclei = self.detectDrop.currentText()
+        field = self.b0List[self.b0Drop.currentIndex()]
+        nScans = self.scanBox.value()
+        return nuclei, field, nScans
+        
     def upd(self):
         if self.main.sampleName is None:
             self.sampleLabel.setText('<i>No sample</i>')
