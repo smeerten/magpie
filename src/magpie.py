@@ -96,6 +96,7 @@ class MainProgram(QtWidgets.QMainWindow):
     
     def simulate(self):
         self.stop()
+        self.spectrometerFrame.setRunning(True)
         parameters = self.paramFrame.getParameters()
         nuclei, field, self.numScans = self.spectrometerFrame.getSettings()
         self.simulator.setSettings(field, nuclei)
@@ -114,6 +115,7 @@ class MainProgram(QtWidgets.QMainWindow):
             self.stop()
 
     def stop(self):
+        self.spectrometerFrame.setRunning(False)
         if self.timer is not None:
             self.timer.stop()
             self.timer = None
@@ -506,6 +508,11 @@ class SpectrometerFrame(QtWidgets.QFrame):
         self.acquirePush.clicked.connect(self.main.simulate)
         grid.addWidget(self.acquirePush,9,0,1,2)
 
+        self.stopPush = QtWidgets.QPushButton('Stop')
+        self.stopPush.clicked.connect(self.main.stop)
+        grid.addWidget(self.stopPush,9,0,1,2)
+        self.stopPush.setVisible(False)
+        
         #grid.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
         grid.setRowStretch(20, 1)
         
@@ -513,6 +520,14 @@ class SpectrometerFrame(QtWidgets.QFrame):
         self.grid = grid
         self.upd()
 
+    def setRunning(self, running):
+        if running:
+            self.acquirePush.setVisible(False)
+            self.stopPush.setVisible(True)
+        else:
+            self.acquirePush.setVisible(True)
+            self.stopPush.setVisible(False)
+            
     def getSettings(self):
         nuclei = self.detectDrop.currentText()
         field = self.b0List[self.b0Drop.currentIndex()]
