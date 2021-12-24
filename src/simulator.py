@@ -53,8 +53,10 @@ class Simulator():
     def reset(self):
         if self.sample is not None:
             self.allSpins = np.array(list(self.sample.expandSystems(self.settings['B0'], self.settings['observe'])))
+            self.allSpinsCurrentAmp = np.copy(self.allSpins[:,1])
         else:
             self.allSpins = None
+            self.allSpinsCurrentAmp = None
         self.phaseIter = 0
         self.arrayIter = 0
         self.FID = []
@@ -66,9 +68,9 @@ class Simulator():
         self.arrayIter += 1
 
     def setSettings(self, field=None, nuclei=None):
-        if field is None:
+        if field is not None:
             self.settings['B0'] = field
-        if nuclei is None:
+        if nuclei is not None:
             self.settings['observe'] = nuclei
         
     def setSample(self, sample):
@@ -91,15 +93,14 @@ class Simulator():
             return [], []
         t = np.linspace(0, self.FIDtime, len(self.scaledFID[0]))
         return t, np.array(self.scaledFID)
-        
+
     def scan(self):
         """
         Simulate using the defined pulseSeq, settings, and sample.
         """
-        for spinInfo in self.allSpins:
+        for i, spinInfo in enumerate(self.allSpins):
             Frequency, Intensity, T1, T2, T2prime = spinInfo
-            spinFID, newAmp, self.FIDtime = self.simulateSpin(Intensity, Frequency, T1, T2, len(self.allSpins))
-            spinInfo[1] = newAmp
+            spinFID, self.allSpinsCurrentAmp[i], self.FIDtime = self.simulateSpin(self.allSpinsCurrentAmp[i], Frequency, T1, T2, len(self.allSpins), Intensity)
             if len(self.FID) == self.arrayIter:
                 self.FID.append(spinFID)
                 self.scaledFID.append(self.FID[-1])
@@ -107,8 +108,8 @@ class Simulator():
                 self.FID[self.arrayIter] += spinFID
                 self.scaledFID[self.arrayIter] = self.FID[self.arrayIter] / (self.phaseIter + 1)
         self.phaseIter += 1
-                
-    def simulateSpin(self, amp, freq, T1, T2, numSpins):
+
+    def simulateSpin(self, amp, freq, T1, T2, numSpins, M0):
         M = np.array([0, 0, amp])
         scanResults = []
         FIDtime = 0 
@@ -133,14 +134,14 @@ class Simulator():
                 FIDtime += timeStep
             else:
                 t_eval = None
-            sol = solve_ivp(diffEq, (0, timeStep), M, t_eval=t_eval, args=(B, T1, T2, amp), vectorized=True)
+            sol = solve_ivp(diffEq, (0, timeStep), M, t_eval=t_eval, args=(B, T1, T2, M0), vectorized=True)
             M = sol.y[:,-1]
             if pulseStep['type'] == 'FID':
                 # TODO: proper scaling factor for noise factor
-                noiseFactor = 1.0e-4/(t_eval[1]-t_eval[0])
-                noise = 1j*np.random.normal(0, noiseFactor, len(sol.y[0]))
-                noise += np.random.normal(0, noiseFactor, len(sol.y[0]))
-                scanResults.append(sol.y[0] + 1j*sol.y[1] + noise/float(numSpins))
+                SNR = sample.getGamma(self.settings['observe']) * np.sqrt(sample.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)
+                noiseFactor = 100.0/(SNR*(t_eval[1]-t_eval[0]))
+                noise = np.random.normal(0, noiseFactor, len(sol.y[0])) + 1j*np.random.normal(0, noiseFactor, len(sol.y[0]))
+                scanResults.append(sol.y[0] - 1j*sol.y[1] + noise/float(numSpins))
         if len(scanResults) > 0:
             scanResults = np.concatenate(scanResults)
         else:

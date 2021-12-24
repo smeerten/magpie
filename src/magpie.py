@@ -243,8 +243,7 @@ class AcqWidget(ParameterWidget):
         sw = safeEval(self.sw.text())
         self.sw.setText(str(sw))
         time = safeEval(self.time.text())
-        points = np.floor(time * sw*1000)
-        self.np.setText(str(int(points)))
+        points = np.floor(safeEval(self.np.text()))
         self.time.setText(str(points / (sw*1000)))
         
     def npChanged(self):
@@ -256,8 +255,7 @@ class AcqWidget(ParameterWidget):
     def timeChanged(self):
         time = safeEval(self.time.text())
         sw = safeEval(self.sw.text())
-        points = np.floor(time * sw*1000)
-        self.np.setText(str(int(points)))
+        points = np.floor(safeEval(self.np.text()))
         self.time.setText(str(points / (sw*1000))) 
         
     def returnValues(self):
