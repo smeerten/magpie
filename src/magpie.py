@@ -188,7 +188,7 @@ class ParameterWidget(QtWidgets.QWidget):
 class DelayWidget(ParameterWidget):
     def __init__(self, parent, pulseStep):
         super(DelayWidget, self).__init__(parent, pulseStep)
-        self.grid.addWidget(QtWidgets.QLabel('Duration [s]'), 0, 0)
+        self.grid.addWidget(QtWidgets.QLabel('Duration [s]:'), 0, 0)
         self.time = QtWidgets.QLineEdit(str(self.pulseStep['time']))
         self.grid.addWidget(self.time, 0, 1)
 
@@ -199,11 +199,11 @@ class DelayWidget(ParameterWidget):
 class PulseWidget(ParameterWidget):
     def __init__(self, parent, pulseStep):
         super(PulseWidget, self).__init__(parent, pulseStep)
-        self.grid.addWidget(QtWidgets.QLabel('Duration [µs]'), 0, 0)
+        self.grid.addWidget(QtWidgets.QLabel('Duration [µs]:'), 0, 0)
         self.time = QtWidgets.QLineEdit(str(1e6*self.pulseStep['time']))
         self.grid.addWidget(self.time, 0, 1)
 
-        self.grid.addWidget(QtWidgets.QLabel('Amplitude [kHz]'), 0, 2)
+        self.grid.addWidget(QtWidgets.QLabel('Amplitude [kHz]:'), 0, 2)
         self.amplitude = QtWidgets.QLineEdit(str(1e-3*self.pulseStep['amp']))
         self.grid.addWidget(self.amplitude, 0, 3)
 
@@ -224,39 +224,32 @@ class AcqWidget(ParameterWidget):
     # TODO: recalculate the values after filling in a field
     def __init__(self, parent, pulseStep):
         super(AcqWidget, self).__init__(parent, pulseStep)
-        self.grid.addWidget(QtWidgets.QLabel('Spectral Width [kHz]'), 0, 0)
+        self.grid.addWidget(QtWidgets.QLabel('Spectral Width [kHz]:'), 0, 0)
         self.sw = QtWidgets.QLineEdit(str(1e-3*self.pulseStep['amp']/self.pulseStep['time']))
         self.sw.editingFinished.connect(self.swChanged)
         self.grid.addWidget(self.sw, 0, 1)
 
-        self.grid.addWidget(QtWidgets.QLabel('# of points'), 0, 2)
+        self.grid.addWidget(QtWidgets.QLabel('# of points:'), 0, 2)
         self.np = QtWidgets.QLineEdit(str(int(self.pulseStep['amp'])))
         self.np.editingFinished.connect(self.npChanged)
         self.grid.addWidget(self.np, 0, 3)
 
-        self.grid.addWidget(QtWidgets.QLabel('Acq. time [s]'), 0, 4)
-        self.time = QtWidgets.QLineEdit(str(self.pulseStep['time']))
-        self.time.editingFinished.connect(self.timeChanged)
+        self.grid.addWidget(QtWidgets.QLabel('Acq. time [s]:'), 0, 4)
+        self.time = QtWidgets.QLabel('{:.6g}'.format(self.pulseStep['time']))
+        self.time.setAlignment(QtCore.Qt.AlignCenter)
         self.grid.addWidget(self.time, 0, 5)
         
     def swChanged(self):
         sw = safeEval(self.sw.text())
         self.sw.setText(str(sw))
-        time = safeEval(self.time.text())
         points = np.floor(safeEval(self.np.text()))
-        self.time.setText(str(points / (sw*1000)))
+        self.time.setText('{:.6g}'.format(points / (sw*1000)))
         
     def npChanged(self):
         points = np.floor(safeEval(self.np.text()))
         self.np.setText(str(int(points)))
         sw = safeEval(self.sw.text())
-        self.time.setText(str(points / (sw*1000))) 
-        
-    def timeChanged(self):
-        time = safeEval(self.time.text())
-        sw = safeEval(self.sw.text())
-        points = np.floor(safeEval(self.np.text()))
-        self.time.setText(str(points / (sw*1000))) 
+        self.time.setText('{:.6g}'.format(points / (sw*1000)))
         
     def returnValues(self):
         self.pulseStep['time'] = float(self.time.text())
