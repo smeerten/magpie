@@ -28,6 +28,7 @@ import sample
 
 def diffEq(t, M, B, T1, T2, M0):
     Bx, By, Bz = B
+    
     mat = np.array([[-1/T2, Bz,  -By],
                     [-Bz,   -1/T2, Bx],
                     [By,   -Bx,  -1/T1]])
@@ -112,7 +113,12 @@ class Simulator():
     def simulateSpin(self, amp, freq, T1, T2, numSpins, M0):
         M = np.array([0, 0, amp])
         scanResults = []
-        FIDtime = 0 
+        FIDtime = 0
+        
+        # Add freq offset
+        Offset = float(self.pulseSeq.loc[self.pulseSeq['name'] == 'Acq']['offset']) * 1000
+        freq -= Offset
+        
         for ind, pulseStep in self.pulseSeq.iterrows():
             if pulseStep['type'] == 'pulse':
                 rf = pulseStep['amp']

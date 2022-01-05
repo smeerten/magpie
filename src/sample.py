@@ -241,12 +241,10 @@ class sample():
             [Frequency, Intensity, T1, T2]
         """
         for spin in spinList:
-            print(spin)
             freq, inten, T1, T2, T2prime = spin
             samples = int(T2/T2prime * factor)
             if samples%2 == 0:
                 samples += 1
-            print(samples)
             limit = widthMax / T2prime
             sel = np.linspace(-limit,limit,samples)
             distr = lorentz(T2prime,sel)
@@ -325,7 +323,6 @@ def loadSampleFile(loc):
             if molecule['Jmatrix'].shape != (nspins,nspins):
                 raise Exception('Jmaxtrix incorrect size')
         tube.addMolecule(molecule['spins'],molecule['Jmatrix'],molecule['amount'],molecule['T1'],molecule['T2'],molecule['T2prime'])
-        print(molecule)
 
     return tube
 

@@ -224,20 +224,24 @@ class AcqWidget(ParameterWidget):
     # TODO: recalculate the values after filling in a field
     def __init__(self, parent, pulseStep):
         super(AcqWidget, self).__init__(parent, pulseStep)
-        self.grid.addWidget(QtWidgets.QLabel('Spectral Width [kHz]:'), 0, 0)
+        self.grid.addWidget(QtWidgets.QLabel('Offset [kHz]:'), 0, 0)
+        self.offset = QtWidgets.QLineEdit('0')
+        self.grid.addWidget(self.offset, 0, 1)
+                
+        self.grid.addWidget(QtWidgets.QLabel('Spectral Width [kHz]:'), 0, 2)
         self.sw = QtWidgets.QLineEdit(str(1e-3*self.pulseStep['amp']/self.pulseStep['time']))
         self.sw.editingFinished.connect(self.swChanged)
-        self.grid.addWidget(self.sw, 0, 1)
+        self.grid.addWidget(self.sw, 0, 3)
 
-        self.grid.addWidget(QtWidgets.QLabel('# of points:'), 0, 2)
+        self.grid.addWidget(QtWidgets.QLabel('# of points:'), 0, 4)
         self.np = QtWidgets.QLineEdit(str(int(self.pulseStep['amp'])))
         self.np.editingFinished.connect(self.npChanged)
-        self.grid.addWidget(self.np, 0, 3)
+        self.grid.addWidget(self.np, 0, 5)
 
-        self.grid.addWidget(QtWidgets.QLabel('Acq. time [s]:'), 0, 4)
+        self.grid.addWidget(QtWidgets.QLabel('Acq. time [s]:'), 0, 6)
         self.time = QtWidgets.QLabel('{:.6g}'.format(self.pulseStep['time']))
         self.time.setAlignment(QtCore.Qt.AlignCenter)
-        self.grid.addWidget(self.time, 0, 5)
+        self.grid.addWidget(self.time, 0, 7)
         
     def swChanged(self):
         sw = safeEval(self.sw.text())
@@ -254,6 +258,7 @@ class AcqWidget(ParameterWidget):
     def returnValues(self):
         self.pulseStep['time'] = float(self.time.text())
         self.pulseStep['amp'] = int(self.np.text())
+        self.pulseStep['offset'] = float(self.offset.text())
         return self.pulseStep
     
 class PlotFrame(QtWidgets.QTabWidget):
