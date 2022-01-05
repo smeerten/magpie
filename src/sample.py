@@ -18,14 +18,8 @@
 # along with magpie. If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-import loadIsotopes
+import helperFunctions as helpFie
 from safeEval import safeEval
-
-ISOTOPES = loadIsotopes.getIsotopes('IsotopeProperties')
-GAMMASCALE = 42.576e6/100
-
-def getGamma(isotope):
-    return ISOTOPES[isotope][1] * GAMMASCALE * 1e-6
 
 def getSplittingPattern(I,Multi):
     Kernel = np.ones((int(2*I+1)))
@@ -76,7 +70,7 @@ def scaleScalarCouplings(J,spins,decouple,B0):
     """
     for pos, spin in enumerate(spins):
         if spin[0] == decouple[0]: # If nucleus is decoupled
-            shift = spin[1] * B0 * getGamma(spin[0])
+            shift = spin[1] * B0 * helpFie.getGamma(spin[0])
             offset = decouple[1] - shift
             scale = np.cos(np.arctan(decouple[2]/offset))
             # Scale row and column of Jmatrix with this value
@@ -194,7 +188,7 @@ class sample():
             IntSplits = []
             for spin in spins:
                 Multi = spin[2]
-                I = ISOTOPES[spin[0]][0]
+                I = helpFie.getSpinQuant(spin[0])
                 Split, IntenFull = getSplittingPattern(I,Multi)
                 FreqSplits.append(Split)
                 IntSplits.append(IntenFull)
@@ -208,7 +202,7 @@ class sample():
                     Jlist = J[pos,:]
                     Shift = spin[1]
                     Multi = spin[2]
-                    freqList = np.array([Shift * B0 * getGamma(observe)]) # Freq of spin in Hz
+                    freqList = np.array([Shift * B0 * helpFie.getGamma(observe)]) # Freq of spin in Hz
                     intList = np.array([Multi])
                     for pos2, Jval in enumerate(Jlist):
                         if pos2 != pos and Jval != 0:

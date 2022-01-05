@@ -25,6 +25,7 @@ import sys
 import numpy as np
 import pandas as pd
 from safeEval import safeEval
+import helperFunctions as helpFie
 
 import matplotlib
 # First import matplotlib and Qt
@@ -277,10 +278,14 @@ class PlotFrame(QtWidgets.QTabWidget):
         self.sequenceFrame.drawPulseSeq(*args)
 
     def plotData(self, time, FIDarray):
+        parameters = self.main.paramFrame.getParameters()
+        Offset = float(parameters.loc[parameters['name'] == 'Acq']['offset']) * 1000
+        ppmHz = self.main.simulator.settings['B0'] * helpFie.getGamma(self.main.simulator.settings['observe']) # Amount of Hz per ppm, e.g. mainFreq/1e6     
+        
         self.fidFrame.resetPlot()
         self.specFrame.resetPlot()
         freq = np.fft.fftshift(np.fft.fftfreq(len(time), time[1]-time[0]))
-        freqppm = freq/300
+        freqppm = freq/ppmHz + Offset/ppmHz
         spec = np.fft.fftshift(np.fft.fft(FIDarray, axis=1), axes=1)
         self.fidFrame.plot(time, np.real(FIDarray).T)
         self.specFrame.plot(freqppm,freq, np.real(spec).T)

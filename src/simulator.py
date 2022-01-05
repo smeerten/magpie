@@ -25,6 +25,7 @@ import ast
 import matplotlib.pyplot as plt
 
 import sample
+import helperFunctions as helpFie
 
 def diffEq(t, M, B, T1, T2, M0):
     Bx, By, Bz = B
@@ -144,7 +145,7 @@ class Simulator():
             M = sol.y[:,-1]
             if pulseStep['type'] == 'FID':
                 # TODO: proper scaling factor for noise factor
-                SNR = sample.getGamma(self.settings['observe']) * np.sqrt(sample.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)
+                SNR = helpFie.getGamma(self.settings['observe']) * np.sqrt(helpFie.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)
                 noiseFactor = 100.0/(SNR*(t_eval[1]-t_eval[0]))
                 noise = np.random.normal(0, noiseFactor, len(sol.y[0])) + 1j*np.random.normal(0, noiseFactor, len(sol.y[0]))
                 scanResults.append(sol.y[0] - 1j*sol.y[1] + noise/float(numSpins))
