@@ -282,8 +282,8 @@ class PlotFrame(QtWidgets.QTabWidget):
         Offset = float(parameters.loc[parameters['name'] == 'Acq']['offset']) * 1000
         ppmHz = self.main.simulator.settings['B0'] * helpFie.getGamma(self.main.simulator.settings['observe']) # Amount of Hz per ppm, e.g. mainFreq/1e6     
         
-        self.fidFrame.resetPlot()
-        self.specFrame.resetPlot()
+        self.fidFrame.clearPlot()
+        self.specFrame.clearPlot()
         freq = np.fft.fftshift(np.fft.fftfreq(len(time), time[1]-time[0]))
         freqppm = freq/ppmHz + Offset/ppmHz
         spec = np.fft.fftshift(np.fft.fft(FIDarray, axis=1), axes=1)
@@ -297,9 +297,165 @@ class AbstractPlotFrame(QtWidgets.QWidget):
         self.canvas = FigureCanvas(self.fig)
         grid = QtWidgets.QGridLayout(self)
         grid.addWidget(self.canvas, 0, 0)
-        self.resetPlot()
+        
+        self.canvas.mpl_connect('button_press_event', self.buttonPress)
+        self.canvas.mpl_connect('button_release_event', self.buttonRelease)
+        self.canvas.mpl_connect('motion_notify_event', self.pan)
+        self.canvas.mpl_connect('scroll_event', self.scroll)
+        self.canvas.setFocusPolicy(QtCore.Qt.ClickFocus)
+        self.canvas.setFocus()
+        self.rect = [None, None, None, None]  # lines for zooming
+        self.leftMouse = False  # is the left mouse button currently pressed
+        self.rightMouse = False  # is the right mouse button currently pressed
+        self.panX = None  # start position of dragging the spectrum
+        self.panY = None  # start position of dragging the spectrum
+        self.xmaxlim = None
+        self.xminlim = None
+        self.ymaxlim = None
+        self.yminlim = None
+        
+        self.zoomX1 = None
+        self.zoomX2 = None
+        self.zoomY1 = None
+        self.zoomY2 = None
+        
+        self.xdata = None
+        self.ydata = None
+        
+        self.clearPlot()
 
-    def resetPlot(self):
+    def scroll(self, event):
+        if self.xdata is None or self.ydata is None:
+            return
+        modifiers = QtWidgets.QApplication.keyboardModifiers()
+        if self.rightMouse:
+            middle = (self.xmaxlim + self.xminlim) / 2.0
+            width = self.xmaxlim - self.xminlim
+            if modifiers == QtCore.Qt.ControlModifier:
+                width = width * 0.6**event.step
+            else:
+                width = width * 0.9**event.step
+            self.xmaxlim = middle + width / 2.0
+            self.xminlim = middle - width / 2.0
+            self.ax.set_xlim(self.xmaxlim, self.xminlim)
+        else:
+            if modifiers == QtCore.Qt.ControlModifier:
+                self.ymaxlim *= 0.6**event.step
+                self.yminlim *= 0.6**event.step
+            else:
+                self.ymaxlim *= 0.9**event.step
+                self.yminlim *= 0.9**event.step
+            self.ax.set_ylim(self.yminlim, self.ymaxlim)
+        self.canvas.update()
+        self.canvas.draw_idle()
+            
+    def buttonPress(self, event):
+        if self.xdata is None or self.ydata is None:
+            return
+        if event.button == 1:
+            self.leftMouse = True
+            self.zoomX1 = event.xdata
+            self.zoomY1 = event.ydata
+        elif (event.button == 3) and event.dblclick:
+            self.plotReset()
+        elif event.button == 3:
+            self.rightMouse = True
+            self.panX = event.xdata
+            self.panY = event.ydata
+
+    def buttonRelease(self, event):
+        if self.xdata is None or self.ydata is None:
+            return
+        if event.button == 1:
+            self.leftMouse = False
+            try:
+                if self.rect[0] is not None:
+                    self.rect[0].remove()
+                if self.rect[1] is not None:
+                    self.rect[1].remove()
+                if self.rect[2] is not None:
+                    self.rect[2].remove()
+                if self.rect[3] is not None:
+                    self.rect[3].remove()
+            finally:
+                self.rect = [None, None, None, None]
+            if self.zoomX2 is not None and self.zoomY2 is not None:
+                self.xminlim = min([self.zoomX1, self.zoomX2])
+                self.xmaxlim = max([self.zoomX1, self.zoomX2])
+                self.yminlim = min([self.zoomY1, self.zoomY2])
+                self.ymaxlim = max([self.zoomY1, self.zoomY2])
+                self.ax.set_xlim(self.xmaxlim, self.xminlim)
+                self.ax.set_ylim(self.yminlim, self.ymaxlim)
+            self.zoomX1 = None
+            self.zoomX2 = None
+            self.zoomY1 = None
+            self.zoomY2 = None
+        elif event.button == 3:
+            self.rightMouse = False
+        self.canvas.draw_idle()
+     
+    def pan(self, event):
+        if self.xdata is None or self.ydata is None:
+            return
+        modifiers = QtWidgets.QApplication.keyboardModifiers()
+        if self.rightMouse and self.panX is not None and self.panY is not None:
+            inv = self.ax.transData.inverted()
+            point = inv.transform((event.x, event.y))
+            diffx = point[0] - self.panX
+            diffy = point[1] - self.panY
+            if modifiers == QtCore.Qt.ControlModifier:
+                self.xmaxlim = self.xmaxlim - diffx
+                self.xminlim = self.xminlim - diffx
+            elif modifiers == QtCore.Qt.ShiftModifier:
+                self.ymaxlim = self.ymaxlim - diffy
+                self.yminlim = self.yminlim - diffy
+            else:
+                self.xmaxlim = self.xmaxlim - diffx
+                self.xminlim = self.xminlim - diffx
+                self.ymaxlim = self.ymaxlim - diffy
+                self.yminlim = self.yminlim - diffy
+            self.ax.set_xlim(self.xmaxlim, self.xminlim)
+            self.ax.set_ylim(self.yminlim, self.ymaxlim)
+            self.canvas.draw_idle()
+        elif self.leftMouse and (self.zoomX1 is not None) and (self.zoomY1 is not None):
+            inv = self.ax.transData.inverted()
+            point = inv.transform((event.x, event.y))
+            self.zoomX2 = point[0]
+            self.zoomY2 = point[1]
+            if self.rect[0] is not None:
+                try:
+                    if self.rect[0] is not None:
+                        self.rect[0].remove()
+                    if self.rect[1] is not None:
+                        self.rect[1].remove()
+                    if self.rect[2] is not None:
+                        self.rect[2].remove()
+                    if self.rect[3] is not None:
+                        self.rect[3].remove()
+                finally:
+                    self.rect = [None, None, None, None]
+            self.rect[0], = self.ax.plot([self.zoomX1, self.zoomX2], [self.zoomY2, self.zoomY2], 'k', clip_on=False)
+            self.rect[1], = self.ax.plot([self.zoomX1, self.zoomX2], [self.zoomY1, self.zoomY1], 'k', clip_on=False)
+            self.rect[2], = self.ax.plot([self.zoomX1, self.zoomX1], [self.zoomY1, self.zoomY2], 'k', clip_on=False)
+            self.rect[3], = self.ax.plot([self.zoomX2, self.zoomX2], [self.zoomY1, self.zoomY2], 'k', clip_on=False)
+            self.canvas.draw_idle()
+     
+    def plotReset(self, xReset=True, yReset=True):  # set the plot limits to min and max values
+        if self.xdata is None or self.ydata is None:
+            return
+        miny = min(np.real(self.ydata))
+        maxy = max(np.real(self.ydata))
+        differ = 0.05 * (maxy - miny)  # amount to add to show all datapoints (10%)
+        if yReset:
+            self.yminlim = miny - differ
+            self.ymaxlim = maxy + differ
+        if xReset:
+            self.xminlim = min(self.xdata)
+            self.xmaxlim = max(self.xdata)
+        self.ax.set_xlim(self.xmaxlim, self.xminlim)
+        self.ax.set_ylim(self.yminlim, self.ymaxlim)
+
+    def clearPlot(self):
         self.fig.clf()
         self.ax = self.fig.add_subplot(111)
 
@@ -328,7 +484,7 @@ class SequenceDiagram(AbstractPlotFrame):
         self.canvas.mpl_connect('pick_event', self.pickHandler)
 
     def drawPulseSeq(self, isotope, pulseSeq):
-        self.resetPlot()
+        self.clearPlot()
         self.setIsotope(isotope)
         if pulseSeq is None:
             return
@@ -427,8 +583,8 @@ class SequenceDiagram(AbstractPlotFrame):
         self.canvas.draw()
         self.main.paramFrame.setCurrentIndex(pos)
 
-    def resetPlot(self):
-        AbstractPlotFrame.resetPlot(self)
+    def clearPlot(self):
+        AbstractPlotFrame.clearPlot(self)
         self.ax.axis('off')
         self.xpos = 0
         self.elems = []
@@ -438,16 +594,26 @@ class SequenceDiagram(AbstractPlotFrame):
 class FidPlotFrame(AbstractPlotFrame):
 
     def plot(self, xdata, ydata):
+        self.xdata = xdata
+        self.ydata = ydata
         self.ax.plot(xdata, ydata)
         self.ax.set_xlim(np.min(xdata), np.max(xdata))
         self.ax.set_xlabel('Time [s]')
         self.ax.set_ylabel('Intensity [arb. u.]')
+        
+        self.xmaxlim = np.max(xdata)
+        self.xminlim = np.min(xdata)
+        self.ymaxlim = np.max(ydata)
+        self.yminlim = np.min(ydata)
+        self.plotReset()
         self.canvas.draw()
 
 
 class SpecPlotFrame(AbstractPlotFrame):
 
     def plot(self, xdata, xdata2, ydata):
+        self.xdata = xdata
+        self.ydata = ydata
         self.ax.plot(xdata, ydata)
         self.ax2 = self.ax.twiny()
         self.ax.set_xlim(np.max(xdata), np.min(xdata))
@@ -455,6 +621,11 @@ class SpecPlotFrame(AbstractPlotFrame):
         self.ax.set_xlabel('Shift [ppm]')
         self.ax.set_ylabel('Intensity [arb. u.]')
         self.ax2.set_xlabel('Frequency [kHz]')
+        self.xmaxlim = np.max(xdata)
+        self.xminlim = np.min(xdata)
+        self.ymaxlim = np.max(ydata)
+        self.yminlim = np.min(ydata)
+        self.plotReset()
         self.canvas.draw()
 
 
