@@ -182,7 +182,7 @@ class sample():
             spins = system['spins']
             concentration = system['amp']
             J = system['J']
-
+            
             # Splitting patterns
             FreqSplits = []
             IntSplits = []
@@ -200,6 +200,7 @@ class sample():
             for pos, spin in enumerate(spins):
                 if spin[0] == observe:
                     Jlist = J[pos,:]
+
                     Shift = spin[1]
                     Multi = spin[2]
                     freqList = np.array([Shift * B0 * helpFie.getGamma(observe)]) # Freq of spin in Hz
@@ -298,6 +299,7 @@ def loadSampleFile(loc):
                 if not 'J' in molecule:
                     molecule['J'] = []
                 molecule['J'].append([int(spin1),int(spin2),float(Jval)])
+                molecule['J'].append([int(spin2),int(spin1),float(Jval)])
             elif elem.startswith('Jmatrix '):
                 elem = elem[8:].strip()
                 molecule['Jmatrix'] = np.array(safeEval(elem))
@@ -325,7 +327,11 @@ def loadSampleFile(loc):
 if __name__ == '__main__':
 
     # Some test code
-    tube = loadSampleFile(r'TestFiles/DoubleEthanol.txt')
+    tube = loadSampleFile(r'../samples/Ethanol.txt')
+    out = tube.expandSystems(7,'1H')
+    
+
+    
 
     #tube = sample()
     #tube.addMolecule([('1H',0,1),('1H',1,1),('13C',1,1)],np.array([[0,10,5],[10,0,0],[5,0,0]]),1,3,1,1)

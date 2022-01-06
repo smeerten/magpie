@@ -20,6 +20,7 @@
 import re
 import numpy as np
 import scipy.special
+import scipy.integrate
 
 def safeEval(inp, length=None, Type='All', x=None):
     """
