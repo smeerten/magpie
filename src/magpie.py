@@ -99,8 +99,8 @@ class MainProgram(QtWidgets.QMainWindow):
         self.stop()
         self.spectrometerFrame.setRunning(True)
         parameters = self.paramFrame.getParameters()
-        nuclei, field, self.numScans = self.spectrometerFrame.getSettings()
-        self.simulator.setSettings(field, nuclei)
+        nuclei, field, offset, self.numScans = self.spectrometerFrame.getSettings()
+        self.simulator.setSettings(field, nuclei, offset)
         self.simulator.setPulseSeq(parameters)
         self.simulator.reset()
         self.iScan = 0
@@ -225,9 +225,9 @@ class AcqWidget(ParameterWidget):
     # TODO: recalculate the values after filling in a field
     def __init__(self, parent, pulseStep):
         super(AcqWidget, self).__init__(parent, pulseStep)
-        self.grid.addWidget(QtWidgets.QLabel('Offset [kHz]:'), 0, 0)
-        self.offset = QtWidgets.QLineEdit('0')
-        self.grid.addWidget(self.offset, 0, 1)
+        # self.grid.addWidget(QtWidgets.QLabel('Offset [kHz]:'), 0, 0)
+        # self.offset = QtWidgets.QLineEdit('0')
+        # self.grid.addWidget(self.offset, 0, 1)
                 
         self.grid.addWidget(QtWidgets.QLabel('Spectral Width [kHz]:'), 0, 2)
         self.sw = QtWidgets.QLineEdit(str(1e-3*self.pulseStep['amp']/self.pulseStep['time']))
@@ -259,7 +259,7 @@ class AcqWidget(ParameterWidget):
     def returnValues(self):
         self.pulseStep['time'] = float(self.time.text())
         self.pulseStep['amp'] = int(self.np.text())
-        self.pulseStep['offset'] = float(self.offset.text())
+        # self.pulseStep['offset'] = float(self.offset.text())
         return self.pulseStep
     
 class PlotFrame(QtWidgets.QTabWidget):
@@ -279,13 +279,13 @@ class PlotFrame(QtWidgets.QTabWidget):
 
     def plotData(self, time, FIDarray):
         parameters = self.main.paramFrame.getParameters()
-        Offset = float(parameters.loc[parameters['name'] == 'Acq']['offset']) * 1000
+        offset = self.main.simulator.settings['offset']
         ppmHz = self.main.simulator.settings['B0'] * helpFie.getGamma(self.main.simulator.settings['observe']) # Amount of Hz per ppm, e.g. mainFreq/1e6     
         
         self.fidFrame.clearPlot()
         self.specFrame.clearPlot()
         freq = np.fft.fftshift(np.fft.fftfreq(len(time), time[1]-time[0]))
-        freqppm = freq/ppmHz + Offset/ppmHz
+        freqppm = freq/ppmHz + offset/ppmHz
         spec = np.fft.fftshift(np.fft.fft(FIDarray, axis=1), axes=1)
         self.fidFrame.plot(time, np.real(FIDarray).T)
         self.specFrame.plot(freqppm,freq, np.real(spec).T)
@@ -688,18 +688,22 @@ class SpectrometerFrame(QtWidgets.QFrame):
         self.b0Drop.addItems([f'{i:.1f}T' for i in self.b0List])
         grid.addWidget(self.b0Drop,7,1)
 
-        grid.addWidget(QtWidgets.QLabel('# Scans:'),8,0)
+        grid.addWidget(QtWidgets.QLabel('Offset [kHz]:'),8,0)
+        self.offsetInput = QtWidgets.QLineEdit('0.0')
+        grid.addWidget(self.offsetInput,8,1)
+        
+        grid.addWidget(QtWidgets.QLabel('# Scans:'),9,0)
         self.scanBox = QtWidgets.QSpinBox()
         self.scanBox.setMinimum(1)
-        grid.addWidget(self.scanBox,8,1)
+        grid.addWidget(self.scanBox,9,1)
         
         self.acquirePush = QtWidgets.QPushButton('Acquire')
         self.acquirePush.clicked.connect(self.main.simulate)
-        grid.addWidget(self.acquirePush,9,0,1,2)
+        grid.addWidget(self.acquirePush,10,0,1,2)
 
         self.stopPush = QtWidgets.QPushButton('Stop')
         self.stopPush.clicked.connect(self.main.stop)
-        grid.addWidget(self.stopPush,9,0,1,2)
+        grid.addWidget(self.stopPush,10,0,1,2)
         self.stopPush.setVisible(False)
         
         #grid.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
@@ -720,8 +724,9 @@ class SpectrometerFrame(QtWidgets.QFrame):
     def getSettings(self):
         nuclei = self.detectDrop.currentText()
         field = self.b0List[self.b0Drop.currentIndex()]
+        offset = safeEval(self.offsetInput.text()) * 1000.0
         nScans = self.scanBox.value()
-        return nuclei, field, nScans
+        return nuclei, field, offset, nScans
         
     def upd(self):
         if self.main.sampleName is None:

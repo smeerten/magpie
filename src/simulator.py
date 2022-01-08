@@ -42,7 +42,7 @@ class Simulator():
     
     def __init__(self, pulseSeq=None, settings=None, sample=None):
         if settings is None:
-            self.settings = {'B0':7.0, 'observe':'1H'}
+            self.settings = {'B0':7.0, 'observe':'1H', 'offset':0.0}
         else:
             self.settings = settings
         self.sample = sample
@@ -69,11 +69,13 @@ class Simulator():
         self.phaseIter = 0
         self.arrayIter += 1
 
-    def setSettings(self, field=None, nuclei=None):
+    def setSettings(self, field=None, nuclei=None, offset=None):
         if field is not None:
             self.settings['B0'] = field
         if nuclei is not None:
             self.settings['observe'] = nuclei
+        if offset is not None:
+            self.settings['offset'] = offset
         
     def setSample(self, sample):
         self.sample = sample
@@ -115,11 +117,7 @@ class Simulator():
         M = np.array([0, 0, amp])
         scanResults = []
         FIDtime = 0
-
-        # Add freq offset
-        offset = float(self.pulseSeq.loc[self.pulseSeq['name'] == 'Acq']['offset']) * 1000
-        freq -= offset
-        
+        freq -= self.settings['offset']
         for ind, pulseStep in self.pulseSeq.iterrows():
             if pulseStep['type'] == 'pulse':
                 rf = pulseStep['amp']
