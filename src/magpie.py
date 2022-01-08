@@ -291,6 +291,8 @@ class PlotFrame(QtWidgets.QTabWidget):
         self.specFrame.plot(freqppm,freq, np.real(spec).T)
         
 class AbstractPlotFrame(QtWidgets.QWidget):
+    MIRRORX = False
+    
     def __init__(self, parent):
         super(AbstractPlotFrame, self).__init__(parent)
         self.fig = Figure()
@@ -337,7 +339,10 @@ class AbstractPlotFrame(QtWidgets.QWidget):
                 width = width * 0.9**event.step
             self.xmaxlim = middle + width / 2.0
             self.xminlim = middle - width / 2.0
-            self.ax.set_xlim(self.xmaxlim, self.xminlim)
+            if self.MIRRORX:
+                self.ax.set_xlim(self.xmaxlim, self.xminlim)
+            else:
+                self.ax.set_xlim(self.xminlim, self.xmaxlim)
         else:
             if modifiers == QtCore.Qt.ControlModifier:
                 self.ymaxlim *= 0.6**event.step
@@ -356,6 +361,7 @@ class AbstractPlotFrame(QtWidgets.QWidget):
             self.leftMouse = True
             self.zoomX1 = event.xdata
             self.zoomY1 = event.ydata
+            print(event.xdata,event.ydata)
         elif (event.button == 3) and event.dblclick:
             self.plotReset()
         elif event.button == 3:
@@ -384,7 +390,10 @@ class AbstractPlotFrame(QtWidgets.QWidget):
                 self.xmaxlim = max([self.zoomX1, self.zoomX2])
                 self.yminlim = min([self.zoomY1, self.zoomY2])
                 self.ymaxlim = max([self.zoomY1, self.zoomY2])
-                self.ax.set_xlim(self.xmaxlim, self.xminlim)
+                if self.MIRRORX:
+                    self.ax.set_xlim(self.xmaxlim, self.xminlim)
+                else:
+                    self.ax.set_xlim(self.xminlim, self.xmaxlim)
                 self.ax.set_ylim(self.yminlim, self.ymaxlim)
             self.zoomX1 = None
             self.zoomX2 = None
@@ -414,7 +423,10 @@ class AbstractPlotFrame(QtWidgets.QWidget):
                 self.xminlim = self.xminlim - diffx
                 self.ymaxlim = self.ymaxlim - diffy
                 self.yminlim = self.yminlim - diffy
-            self.ax.set_xlim(self.xmaxlim, self.xminlim)
+            if self.MIRRORX:
+                self.ax.set_xlim(self.xmaxlim, self.xminlim)
+            else:
+                self.ax.set_xlim(self.xminlim, self.xmaxlim)
             self.ax.set_ylim(self.yminlim, self.ymaxlim)
             self.canvas.draw_idle()
         elif self.leftMouse and (self.zoomX1 is not None) and (self.zoomY1 is not None):
@@ -452,7 +464,10 @@ class AbstractPlotFrame(QtWidgets.QWidget):
         if xReset:
             self.xminlim = min(self.xdata)
             self.xmaxlim = max(self.xdata)
-        self.ax.set_xlim(self.xmaxlim, self.xminlim)
+        if self.MIRRORX:
+            self.ax.set_xlim(self.xmaxlim, self.xminlim)
+        else:
+            self.ax.set_xlim(self.xminlim, self.xmaxlim)
         self.ax.set_ylim(self.yminlim, self.ymaxlim)
 
     def clearPlot(self):
@@ -610,6 +625,7 @@ class FidPlotFrame(AbstractPlotFrame):
 
 
 class SpecPlotFrame(AbstractPlotFrame):
+    MIRRORX = True
 
     def plot(self, xdata, xdata2, ydata):
         self.xdata = xdata
