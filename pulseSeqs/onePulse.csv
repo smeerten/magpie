@@ -1,4 +1,4 @@
 name,type,time,amp,phase
 D1,delay,1
 P1,pulse,2.5e-6,100e3,-90
-Acq,FID,0.5,256
+Acq,FID,1,4096

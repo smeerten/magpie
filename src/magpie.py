@@ -38,7 +38,7 @@ import simulator
 import sample
 VERSION = '0.0'
 
-TIMEDELAY = 200 # ms
+TIMEDELAY = 500 # ms
 
 ISOTOPES = loadIsotopes.getIsotopes('IsotopeProperties')
 NUCLEI = [x for x in ISOTOPES.keys() if not x.startswith('-')]
@@ -357,17 +357,18 @@ class AbstractPlotFrame(QtWidgets.QWidget):
     def buttonPress(self, event):
         if self.xdata is None or self.ydata is None:
             return
+        inv = self.ax.transData.inverted()
+        x, y = inv.transform((event.x, event.y))
         if event.button == 1:
             self.leftMouse = True
-            self.zoomX1 = event.xdata
-            self.zoomY1 = event.ydata
-            print(event.xdata,event.ydata)
+            self.zoomX1 = x
+            self.zoomY1 = y
         elif (event.button == 3) and event.dblclick:
             self.plotReset()
         elif event.button == 3:
             self.rightMouse = True
-            self.panX = event.xdata
-            self.panY = event.ydata
+            self.panX = x
+            self.panY = y
 
     def buttonRelease(self, event):
         if self.xdata is None or self.ydata is None:

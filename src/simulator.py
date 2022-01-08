@@ -115,10 +115,10 @@ class Simulator():
         M = np.array([0, 0, amp])
         scanResults = []
         FIDtime = 0
-        
+
         # Add freq offset
-        Offset = float(self.pulseSeq.loc[self.pulseSeq['name'] == 'Acq']['offset']) * 1000
-        freq -= Offset
+        offset = float(self.pulseSeq.loc[self.pulseSeq['name'] == 'Acq']['offset']) * 1000
+        freq -= offset
         
         for ind, pulseStep in self.pulseSeq.iterrows():
             if pulseStep['type'] == 'pulse':
@@ -131,7 +131,8 @@ class Simulator():
                 phase = np.deg2rad(phase)
                 B = 2 * np.pi * np.array([rf*np.cos(phase), rf*np.sin(phase), freq])
             else:
-                B = 2 * np.pi * np.array([0, 0, freq])
+                #B = 2 * np.pi * np.array([0, 0, freq])
+                B = 2 * np.pi * np.array([0, 0, 0]) # rotating frame per spin
             timeStep = pulseStep['time']
             if hasattr(timeStep, '__iter__'):
                 timeStep = timeStep[self.arrayIter % len(timeStep)]
@@ -142,13 +143,21 @@ class Simulator():
             else:
                 t_eval = None
             sol = solve_ivp(diffEq, (0, timeStep), M, t_eval=t_eval, args=(B, T1, T2, M0), vectorized=True)
-            M = sol.y[:,-1]
+            if pulseStep['type'] == 'pulse':
+                data = np.copy(sol.y)
+            else:
+                # Convert spin rot-frame to global rot-frame
+                data = np.copy(sol.y)
+                phi = 2 * np.pi * freq * sol.t
+                data[0] = np.cos(phi) * sol.y[0] + np.sin(phi) * sol.y[1]
+                data[1] = -1 * np.sin(phi) * sol.y[0] + np.cos(phi) * sol.y[1]
+            M = data[:,-1]
             if pulseStep['type'] == 'FID':
                 # TODO: proper scaling factor for noise factor
                 SNR = helpFie.getGamma(self.settings['observe']) * np.sqrt(helpFie.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)
-                noiseFactor = 100.0/(SNR*(t_eval[1]-t_eval[0]))
-                noise = np.random.normal(0, noiseFactor, len(sol.y[0])) + 1j*np.random.normal(0, noiseFactor, len(sol.y[0]))
-                scanResults.append(sol.y[0] - 1j*sol.y[1] + noise/float(numSpins))
+                noiseFactor = 100.0/(SNR*(sol.t[1]-sol.t[0]))
+                noise = np.random.normal(0, noiseFactor, len(data[0])) + 1j*np.random.normal(0, noiseFactor, len(data[0]))
+                scanResults.append(data[0] - 1j*data[1] + noise/float(numSpins))
         if len(scanResults) > 0:
             scanResults = np.concatenate(scanResults)
         else:
