@@ -55,6 +55,7 @@ class MainProgram(QtWidgets.QMainWindow):
         self.pulseSeqName = None
         self.sampleName = None
         self.numScans = 1
+        self.arrayLen = 1
         self.timer = None
         self.mainFrame = QtWidgets.QGridLayout(self.main_widget)
         self.spectrometerFrame = SpectrometerFrame(self)
@@ -98,12 +99,15 @@ class MainProgram(QtWidgets.QMainWindow):
     def simulate(self):
         self.stop()
         self.spectrometerFrame.setRunning(True)
-        parameters = self.paramFrame.getParameters()
+        self.arrayLen, parameters = self.paramFrame.getParameters()
+        if self.arrayLen is None:
+            self.arrayLen = 1
         nuclei, field, offset, self.numScans = self.spectrometerFrame.getSettings()
         self.simulator.setSettings(field, nuclei, offset)
         self.simulator.setPulseSeq(parameters)
         self.simulator.reset()
         self.iScan = 0
+        self.iArray = 0
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.simulateScan)
         self.timer.start(TIMEDELAY)
@@ -113,6 +117,10 @@ class MainProgram(QtWidgets.QMainWindow):
         self.simulator.scan()
         self.plotData()
         if self.iScan >= self.numScans:
+            self.iScan = 0
+            self.iArray += 1
+            self.simulator.step()
+        if self.iArray >= self.arrayLen:
             self.stop()
 
     def stop(self):
@@ -168,8 +176,18 @@ class ParameterFrame(QtWidgets.QTabWidget):
         self.main.plotFrame.sequenceFrame.highlightElement(index)
 
     def getParameters(self):
-        pars = [wid.returnValues() for wid in self.parWidgets]
-        return pd.DataFrame(pars)
+        arrayLens = set()
+        pars = []
+        for wid in self.parWidgets:
+            arrayLen, par = wid.returnValues()
+            arrayLens = arrayLens | set([arrayLen])
+            pars.append(par)
+        if len(arrayLens) == 1:
+            return list(arrayLens)[0], pd.DataFrame(pars)
+        arrayLens = arrayLens - set([None])
+        if len(arrayLens) == 1:
+            return list(arrayLens)[0], pd.DataFrame(pars)
+        raise RuntimeError('Differing array lengths not supported')
 
     def reset(self):
         self.parWidgets = []
@@ -184,7 +202,7 @@ class ParameterWidget(QtWidgets.QWidget):
         self.grid.setColumnStretch(10, 1)
 
     def returnValues(self):
-        return self.pulseStep
+        return None, self.pulseStep
 
 class DelayWidget(ParameterWidget):
     def __init__(self, parent, pulseStep):
@@ -194,8 +212,13 @@ class DelayWidget(ParameterWidget):
         self.grid.addWidget(self.time, 0, 1)
 
     def returnValues(self):
-        self.pulseStep['time'] = safeEval(self.time.text())
-        return self.pulseStep
+        timeVal = safeEval(self.time.text())
+        if isinstance(timeVal, list):
+            arrayLen = len(timeVal)
+        else:
+            arrayLen = None
+        self.pulseStep['time'] = timeVal
+        return arrayLen, self.pulseStep
 
 class PulseWidget(ParameterWidget):
     def __init__(self, parent, pulseStep):
@@ -212,14 +235,25 @@ class PulseWidget(ParameterWidget):
         timeVal = safeEval(self.time.text())
         if isinstance(timeVal, (int, float)):
             self.pulseStep['time'] = 1e-6 * timeVal
+            arrayLen1 = None
         else:
             self.pulseStep['time'] = [1e-6*i for i in timeVal]
+            arrayLen1 = len(self.pulseStep['time'])
         ampVal = safeEval(self.amplitude.text())
         if isinstance(ampVal, (int, float)):
             self.pulseStep['amp'] = 1e3 * ampVal
+            arrayLen2 = None
         else:
             self.pulseStep['amp'] = [1e3*i for i in ampVal]
-        return self.pulseStep        
+            arrayLen2 = len(self.pulseStep['amp'])
+        lenSet = set([arrayLen1, arrayLen2])
+        if len(lenSet) == 1:
+            return list(lenSet)[0], self.pulseStep
+        lenSet = lenSet - set([None])
+        if len(lenSet) == 1:
+            return list(lenSet)[0], self.pulseStep
+        raise RuntimeError('Differing array lengths not supported')
+    
 
 class AcqWidget(ParameterWidget):
     # TODO: recalculate the values after filling in a field
@@ -260,7 +294,7 @@ class AcqWidget(ParameterWidget):
         self.pulseStep['time'] = float(self.time.text())
         self.pulseStep['amp'] = int(self.np.text())
         # self.pulseStep['offset'] = float(self.offset.text())
-        return self.pulseStep
+        return None, self.pulseStep
     
 class PlotFrame(QtWidgets.QTabWidget):
     
@@ -456,15 +490,15 @@ class AbstractPlotFrame(QtWidgets.QWidget):
     def plotReset(self, xReset=True, yReset=True):  # set the plot limits to min and max values
         if self.xdata is None or self.ydata is None:
             return
-        miny = min(np.real(self.ydata))
-        maxy = max(np.real(self.ydata))
+        miny = np.min(np.real(self.ydata))
+        maxy = np.max(np.real(self.ydata))
         differ = 0.05 * (maxy - miny)  # amount to add to show all datapoints (10%)
         if yReset:
             self.yminlim = miny - differ
             self.ymaxlim = maxy + differ
         if xReset:
-            self.xminlim = min(self.xdata)
-            self.xmaxlim = max(self.xdata)
+            self.xminlim = np.min(self.xdata)
+            self.xmaxlim = np.max(self.xdata)
         if self.MIRRORX:
             self.ax.set_xlim(self.xmaxlim, self.xminlim)
         else:
