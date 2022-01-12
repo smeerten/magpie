@@ -1,0 +1,6 @@
+name,type,time,amp,phase
+D1,delay,1,,
+P2,pulse,7.5E-06,100000,"[0,180]"
+Recovery,delay,1,,
+P1,pulse,2.5E-06,100000,"[-90,-90]"
+Acq,FID,1,4096,
