@@ -267,20 +267,34 @@ class AcqWidget(ParameterWidget):
         self.sw = QtWidgets.QLineEdit(str(1e-3*self.pulseStep['amp']/self.pulseStep['time']))
         self.sw.editingFinished.connect(self.swChanged)
         self.grid.addWidget(self.sw, 0, 3)
+        
+        self.grid.addWidget(QtWidgets.QLabel('Dwell time [µs]:'), 0, 4)
+        self.dw = QtWidgets.QLineEdit(str(1e6*self.pulseStep['time']/self.pulseStep['amp']))
+        self.dw.editingFinished.connect(self.dwChanged)
+        self.grid.addWidget(self.dw, 0, 5)        
 
-        self.grid.addWidget(QtWidgets.QLabel('# of points:'), 0, 4)
+        self.grid.addWidget(QtWidgets.QLabel('# of points:'), 0, 6)
         self.np = QtWidgets.QLineEdit(str(int(self.pulseStep['amp'])))
         self.np.editingFinished.connect(self.npChanged)
-        self.grid.addWidget(self.np, 0, 5)
+        self.grid.addWidget(self.np, 0, 7)
 
-        self.grid.addWidget(QtWidgets.QLabel('Acq. time [s]:'), 0, 6)
+        self.grid.addWidget(QtWidgets.QLabel('Acq. time [s]:'), 0, 8)
         self.time = QtWidgets.QLabel('{:.6g}'.format(self.pulseStep['time']))
         self.time.setAlignment(QtCore.Qt.AlignCenter)
-        self.grid.addWidget(self.time, 0, 7)
+        self.grid.addWidget(self.time, 0, 9)
         
     def swChanged(self):
         sw = safeEval(self.sw.text())
         self.sw.setText(str(sw))
+        self.dw.setText(str(1e3/sw))
+        points = np.floor(safeEval(self.np.text()))
+        self.time.setText('{:.6g}'.format(points / (sw*1000)))
+        
+    def dwChanged(self):
+        dw = safeEval(self.dw.text())
+        sw = 1/(dw*1e-3)
+        self.sw.setText(str(sw))
+        self.dw.setText(str(1e3/sw))
         points = np.floor(safeEval(self.np.text()))
         self.time.setText('{:.6g}'.format(points / (sw*1000)))
         
