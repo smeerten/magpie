@@ -21,8 +21,8 @@ import numpy as np
 import pandas as pd
 from scipy.integrate import solve_ivp
 import ast
-
 import matplotlib.pyplot as plt
+import scipy.io
 
 import sample
 import helperFunctions as helpFie
@@ -55,6 +55,8 @@ class Simulator():
     def reset(self):
         if self.sample is not None:
             self.allSpins = np.array(list(self.sample.expandSystems(self.settings['B0'], self.settings['observe'])))
+            if len(self.allSpins) == 0: # When there are no spins, include a 'zero' spin
+                self.allSpins = np.array([[0.0, 0.0, 1.0, 1.0, 1.0]])
             self.allSpinsCurrentAmp = np.copy(self.allSpins[:,1])
         else:
             self.allSpins = None
@@ -153,15 +155,45 @@ class Simulator():
             if pulseStep['type'] == 'FID':
                 # TODO: proper scaling factor for noise factor
                 SNR = helpFie.getGamma(self.settings['observe']) * np.sqrt(helpFie.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)
-                noiseFactor = 100.0/(SNR*(sol.t[1]-sol.t[0]))
-                noise = np.random.normal(0, noiseFactor, len(data[0])) + 1j*np.random.normal(0, noiseFactor, len(data[0]))
-                scanResults.append(data[0] - 1j*data[1] + noise/float(numSpins))
+                SNR *= (sol.t[1]-sol.t[0]) / 100.0
+                noise = np.random.normal(0, 1, len(data[0])) + 1j*np.random.normal(0, 1, len(data[0]))
+                scanResults.append(SNR*(data[0] - 1j*data[1]) + noise/float(numSpins))
         if len(scanResults) > 0:
             scanResults = np.concatenate(scanResults)
         else:
             scanResults = np.array(scanResults)
         return scanResults, M[2], FIDtime
-            
+
+    def saveMatlabFile(self, filePath, name='FID'):
+        if len(self.scaledFID) == 0:
+            print('No simulated FID available')
+            return
+        freq = 1e6 * self.settings['B0'] * helpFie.getGamma(self.settings['observe'])
+        sw = len(self.scaledFID[0]) / self.FIDtime
+        struct = {}
+        if len(self.scaledFID) > 1:
+            struct['dim'] = 2
+            struct['data'] = np.array([self.scaledFID])
+            struct['spec'] = [False, False]
+            struct['freq'] = [freq-self.settings['offset'], freq-self.settings['offset']]
+            struct['sw'] = [sw, sw]
+            struct['ref'] = [freq, freq]
+            struct['xaxArray'] = [np.arange(len(self.scaledFID)), np.linspace(0, self.FIDtime, len(self.scaledFID[0]))]
+            struct['wholeEcho'] = [False, False]
+            struct['hyper'] = [0]
+        else:
+            struct['dim'] = 1
+            struct['spec'] = [False]
+            struct['data'] = np.array(self.scaledFID)
+            struct['freq'] = [freq-self.settings['offset']]
+            struct['sw'] = [sw]
+            struct['ref'] = [freq]
+            struct['xaxArray'] = [np.linspace(0, self.FIDtime, len(self.scaledFID[0]))]
+            struct['wholeEcho'] = [False]
+            struct['hyper'] = [0]
+        matlabStruct = {name: struct}
+        scipy.io.savemat(filePath, matlabStruct)
+    
 
 if __name__ == '__main__':
     tube = sample.sample()

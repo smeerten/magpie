@@ -111,6 +111,7 @@ class MainProgram(QtWidgets.QMainWindow):
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.simulateScan)
         self.timer.start(TIMEDELAY)
+        self.exportFrame.enableButtons(True)
 
     def simulateScan(self):
         self.iScan += 1
@@ -133,6 +134,9 @@ class MainProgram(QtWidgets.QMainWindow):
         time, FIDarray = self.simulator.getData()
         self.plotFrame.plotData(time, FIDarray)
 
+    def exportFID(self, filePath):
+        self.simulator.saveMatlabFile(filePath)
+        
         
 class ExportFrame(QtWidgets.QWidget):
     def __init__(self, main):
@@ -141,13 +145,19 @@ class ExportFrame(QtWidgets.QWidget):
         grid = QtWidgets.QGridLayout(self)
         self.setLayout(grid)
         self.exportFIDButton = QtWidgets.QPushButton('Export FID')
+        self.exportFIDButton.clicked.connect(self.exportFID)
         self.exportFIDButton.setEnabled(False)
         grid.addWidget(self.exportFIDButton,0,10)
-        self.exportSpectrumButton = QtWidgets.QPushButton('Export Spectrum')
-        self.exportSpectrumButton.setEnabled(False)
-        grid.addWidget(self.exportSpectrumButton,0,11)
         grid.setColumnStretch(0, 1)
 
+    def enableButtons(self, enabled=True):
+        self.exportFIDButton.setEnabled(enabled)
+        
+    def exportFID(self, *args):
+        filePath, extension = QtWidgets.QFileDialog.getSaveFileName(self, 'Save FID', 'FID.mat', 'mat (*.mat)')
+        if filePath:
+            self.main.exportFID(filePath)
+        
 
 class ParameterFrame(QtWidgets.QTabWidget):
     def __init__(self, main):
