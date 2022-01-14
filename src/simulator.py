@@ -155,9 +155,9 @@ class Simulator():
             if pulseStep['type'] == 'FID':
                 # TODO: proper scaling factor for noise factor
                 SNR = helpFie.getGamma(self.settings['observe']) * np.sqrt(helpFie.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)
-                SNR *= (sol.t[1]-sol.t[0]) / 100.0
+                SNR *= (sol.t[1]-sol.t[0]) / 10.0
                 noise = np.random.normal(0, 1, len(data[0])) + 1j*np.random.normal(0, 1, len(data[0]))
-                scanResults.append(SNR*(data[0] - 1j*data[1]) + noise/float(numSpins))
+                scanResults.append(SNR*(data[0] - 1j*data[1]) + 0*noise/np.sqrt(float(numSpins)))
         if len(scanResults) > 0:
             scanResults = np.concatenate(scanResults)
         else:
