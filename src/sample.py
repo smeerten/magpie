@@ -318,6 +318,8 @@ def loadSampleFile(loc):
         elif 'Jmatrix' in molecule:
             if molecule['Jmatrix'].shape != (nspins,nspins):
                 raise Exception('Jmaxtrix incorrect size')
+        else:
+            molecule['Jmatrix'] = np.zeros([nspins,nspins])
         tube.addMolecule(molecule['spins'],molecule['Jmatrix'],molecule['amount'],molecule['T1'],molecule['T2'],molecule['T2prime'])
 
     return tube

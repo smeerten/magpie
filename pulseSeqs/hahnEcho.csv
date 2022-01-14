@@ -1,0 +1,7 @@
+name,type,time,amp,phase
+D1,delay,1,,
+P1,pulse,2.5E-06,100000,"[90,270,90,270]"
+t1,delay,0.1,,
+P2,pulse,5E-06,100000,"[90,0,270,180]"
+t2,delay,0.1,,
+Acq,FID,1,4096,

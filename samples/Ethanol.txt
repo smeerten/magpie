@@ -1,5 +1,5 @@
 ###SAMPLE###
-amount 1000
+amount 1
 ###MOLECULE###
 amount 1 
 T1 5
