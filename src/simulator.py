@@ -54,7 +54,7 @@ class Simulator():
         
     def reset(self):
         if self.sample is not None:
-            self.allSpins = np.array(list(self.sample.expandSystems(self.settings['B0'], self.settings['observe'])))
+            self.allSpins = np.array(list(self.sample.expandBroadening(self.sample.expandSystems(self.settings['B0'], self.settings['observe']))))
             if len(self.allSpins) == 0: # When there are no spins, include a 'zero' spin
                 self.allSpins = np.array([[0.0, 0.0, 1.0, 1.0, 1.0]])
             self.allSpinsCurrentAmp = np.copy(self.allSpins[:,1])
@@ -105,7 +105,7 @@ class Simulator():
         Simulate using the defined pulseSeq, settings, and sample.
         """
         for i, spinInfo in enumerate(self.allSpins):
-            Frequency, Intensity, T1, T2, T2prime = spinInfo
+            Frequency, Intensity, T1, T2 = spinInfo
             spinFID, self.allSpinsCurrentAmp[i], self.FIDtime = self.simulateSpin(self.allSpinsCurrentAmp[i], Frequency, T1, T2, len(self.allSpins), Intensity)
             if len(self.FID) == self.arrayIter:
                 self.FID.append(spinFID)

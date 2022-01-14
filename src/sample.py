@@ -216,7 +216,7 @@ class sample():
                         yield [freqList[place],intList[place] * concentration,spin[3],spin[4],spin[5]]
 
 
-    def expandBroadening(self,spinList,widthMax = 3, factor = 50):
+    def expandBroadening(self,spinList,widthMax = 3, factor = 10):
         """
         Expand each spin, to take T2' broadening (e.g. shimming)
         into account. Do this via subsampling with lorentz lines.
@@ -283,7 +283,7 @@ def loadSampleFile(loc):
                 if len(spinelem) == 3:
                     iso, shift, multi = spinelem
                     relax = [None,None,None]
-                elif len(spinelem) == 5:
+                elif len(spinelem) == 6:
                     iso, shift, multi, T1, T2, T2prime = spinelem
                     relax = []
                     for val in [T1,T2,T2prime]:
