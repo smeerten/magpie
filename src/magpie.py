@@ -102,8 +102,8 @@ class MainProgram(QtWidgets.QMainWindow):
         self.arrayLen, parameters = self.paramFrame.getParameters()
         if self.arrayLen is None:
             self.arrayLen = 1
-        nuclei, field, offset, self.numScans = self.spectrometerFrame.getSettings()
-        self.simulator.setSettings(field, nuclei, offset)
+        nuclei, field, offset, gain, self.numScans = self.spectrometerFrame.getSettings()
+        self.simulator.setSettings(field, nuclei, offset, gain)
         self.simulator.setPulseSeq(parameters)
         self.simulator.reset()
         self.iScan = 0
@@ -749,19 +749,23 @@ class SpectrometerFrame(QtWidgets.QFrame):
         grid.addWidget(QtWidgets.QLabel('Offset [kHz]:'),8,0)
         self.offsetInput = QtWidgets.QLineEdit('0.0')
         grid.addWidget(self.offsetInput,8,1)
+
+        grid.addWidget(QtWidgets.QLabel('Gain:'),9,0)
+        self.gainInput = QtWidgets.QLineEdit('1.0')
+        grid.addWidget(self.gainInput,9,1)
         
-        grid.addWidget(QtWidgets.QLabel('# Scans:'),9,0)
+        grid.addWidget(QtWidgets.QLabel('# Scans:'),10,0)
         self.scanBox = QtWidgets.QSpinBox()
         self.scanBox.setMinimum(1)
-        grid.addWidget(self.scanBox,9,1)
+        grid.addWidget(self.scanBox,10,1)
         
         self.acquirePush = QtWidgets.QPushButton('Acquire')
         self.acquirePush.clicked.connect(self.main.simulate)
-        grid.addWidget(self.acquirePush,10,0,1,2)
+        grid.addWidget(self.acquirePush,11,0,1,2)
 
         self.stopPush = QtWidgets.QPushButton('Stop')
         self.stopPush.clicked.connect(self.main.stop)
-        grid.addWidget(self.stopPush,10,0,1,2)
+        grid.addWidget(self.stopPush,11,0,1,2)
         self.stopPush.setVisible(False)
         
         #grid.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
@@ -783,8 +787,9 @@ class SpectrometerFrame(QtWidgets.QFrame):
         nuclei = self.detectDrop.currentText()
         field = self.b0List[self.b0Drop.currentIndex()]
         offset = safeEval(self.offsetInput.text()) * 1000.0
+        gain = safeEval(self.gainInput.text())
         nScans = self.scanBox.value()
-        return nuclei, field, offset, nScans
+        return nuclei, field, offset, gain, nScans
         
     def upd(self):
         if self.main.sampleName is None:

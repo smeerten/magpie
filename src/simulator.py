@@ -27,6 +27,22 @@ import scipy.io
 import sample
 import helperFunctions as helpFie
 
+
+BITS = 8
+
+NVALS = 2**BITS
+HRANGE = NVALS // 2 
+DIGITPOINTS = np.arange(-HRANGE+1, HRANGE+1, dtype=float)
+DIGITBINS = DIGITPOINTS[:-1] + 0.5
+DIGITPOINTS /= HRANGE
+DIGITBINS /= HRANGE
+
+
+def ADC(fid):
+    fidReal = DIGITPOINTS[np.digitize(np.real(fid), DIGITBINS)]
+    fidImag = DIGITPOINTS[np.digitize(np.imag(fid), DIGITBINS)]
+    return fidReal + 1j*fidImag
+
 def diffEq(t, M, B, T1, T2, M0):
     Bx, By, Bz = B
     
@@ -42,7 +58,7 @@ class Simulator():
     
     def __init__(self, pulseSeq=None, settings=None, sample=None):
         if settings is None:
-            self.settings = {'B0':7.0, 'observe':'1H', 'offset':0.0}
+            self.settings = {'B0':7.0, 'observe':'1H', 'offset':0.0, 'gain':1.0}
         else:
             self.settings = settings
         self.sample = sample
@@ -71,13 +87,15 @@ class Simulator():
         self.phaseIter = 0
         self.arrayIter += 1
 
-    def setSettings(self, field=None, nuclei=None, offset=None):
+    def setSettings(self, field=None, nuclei=None, offset=None, gain=None):
         if field is not None:
             self.settings['B0'] = field
         if nuclei is not None:
             self.settings['observe'] = nuclei
         if offset is not None:
             self.settings['offset'] = offset
+        if gain is not None:
+            self.settings['gain'] = gain
         
     def setSample(self, sample):
         self.sample = sample
@@ -104,15 +122,18 @@ class Simulator():
         """
         Simulate using the defined pulseSeq, settings, and sample.
         """
+        fid = 0
         for i, spinInfo in enumerate(self.allSpins):
             Frequency, Intensity, T1, T2 = spinInfo
             spinFID, self.allSpinsCurrentAmp[i], self.FIDtime = self.simulateSpin(self.allSpinsCurrentAmp[i], Frequency, T1, T2, len(self.allSpins), Intensity)
-            if len(self.FID) == self.arrayIter:
-                self.FID.append(spinFID)
-                self.scaledFID.append(self.FID[-1])
-            else:
-                self.FID[self.arrayIter] += spinFID
-                self.scaledFID[self.arrayIter] = self.FID[self.arrayIter] / (self.phaseIter + 1)
+            fid += spinFID
+        fid = ADC(self.settings['gain']*fid)
+        if len(self.FID) == self.arrayIter:
+            self.FID.append(fid)
+            self.scaledFID.append(self.FID[-1])
+        else:
+            self.FID[self.arrayIter] += fid
+            self.scaledFID[self.arrayIter] = self.FID[self.arrayIter] / (self.phaseIter + 1)
         self.phaseIter += 1
 
     def simulateSpin(self, amp, freq, T1, T2, numSpins, M0):
@@ -157,7 +178,9 @@ class Simulator():
                 SNR = helpFie.getGamma(self.settings['observe']) * np.sqrt(helpFie.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)
                 SNR *= (sol.t[1]-sol.t[0]) / 10.0
                 noise = np.random.normal(0, 1, len(data[0])) + 1j*np.random.normal(0, 1, len(data[0]))
-                scanResults.append(SNR*(data[0] - 1j*data[1]) + 0*noise/np.sqrt(float(numSpins)))
+                fid = SNR * (data[0] - 1j*data[1]) + noise/np.sqrt(float(numSpins))
+                fid *= 0.01 # Arbitrary scaling of the signal
+                scanResults.append(fid)
         if len(scanResults) > 0:
             scanResults = np.concatenate(scanResults)
         else:
