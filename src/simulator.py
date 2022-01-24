@@ -23,6 +23,7 @@ from scipy.integrate import solve_ivp
 import ast
 import matplotlib.pyplot as plt
 import scipy.io
+import time
 
 import sample
 import helperFunctions as helpFie
@@ -118,11 +119,16 @@ class Simulator():
         t = np.linspace(0, self.FIDtime, len(self.scaledFID[0]))
         return t, np.array(self.scaledFID)
 
-    def scan(self):
+    def scan(self, realTime=False):
         """
         Simulate using the defined pulseSeq, settings, and sample.
         """
         fid = 0
+        if realTime:
+            listFilter = self.pulseSeq['time'].apply(lambda x: isinstance(x, list))
+            timeLists = self.pulseSeq['time'][listFilter]
+            timeLists = timeLists.apply(lambda x: x[self.arrayIter % len(x)])
+            time.sleep(timeLists.sum() + self.pulseSeq['time'][~listFilter].sum())
         for i, spinInfo in enumerate(self.allSpins):
             Frequency, Intensity, T1, T2 = spinInfo
             spinFID, self.allSpinsCurrentAmp[i], self.FIDtime = self.simulateSpin(self.allSpinsCurrentAmp[i], Frequency, T1, T2, len(self.allSpins), Intensity)
@@ -173,6 +179,8 @@ class Simulator():
                 data[0] = np.cos(phi) * sol.y[0] + np.sin(phi) * sol.y[1]
                 data[1] = -1 * np.sin(phi) * sol.y[0] + np.cos(phi) * sol.y[1]
             M = data[:,-1]
+            if pulseStep['type'] == 'sat':
+                M *= 0
             if pulseStep['type'] == 'FID':
                 # TODO: proper scaling factor for noise factor
                 SNR = helpFie.getGamma(self.settings['observe']) * np.sqrt(helpFie.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)

@@ -36,7 +36,10 @@ from matplotlib.figure import Figure
 import loadIsotopes
 import simulator
 import sample
+
 VERSION = '0.0'
+
+REALTIME = False
 
 TIMEDELAY = 500 # ms
 
@@ -57,6 +60,7 @@ class MainProgram(QtWidgets.QMainWindow):
         self.numScans = 1
         self.arrayLen = 1
         self.timer = None
+        self.running = False
         self.mainFrame = QtWidgets.QGridLayout(self.main_widget)
         self.spectrometerFrame = SpectrometerFrame(self)
         self.mainFrame.addWidget(self.spectrometerFrame,0,0)
@@ -98,6 +102,7 @@ class MainProgram(QtWidgets.QMainWindow):
     
     def simulate(self):
         self.stop()
+        self.running = True
         self.spectrometerFrame.setRunning(True)
         self.arrayLen, parameters = self.paramFrame.getParameters()
         if self.arrayLen is None:
@@ -110,21 +115,26 @@ class MainProgram(QtWidgets.QMainWindow):
         self.iArray = 0
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.simulateScan)
-        self.timer.start(TIMEDELAY)
+        if REALTIME:
+            self.timer.start(100)
+        else:
+            self.timer.start(TIMEDELAY)
         self.exportFrame.enableButtons(True)
 
     def simulateScan(self):
         self.iScan += 1
-        self.simulator.scan()
-        self.plotData()
-        if self.iScan >= self.numScans:
-            self.iScan = 0
-            self.iArray += 1
-            self.simulator.step()
-        if self.iArray >= self.arrayLen:
-            self.stop()
+        self.simulator.scan(REALTIME)
+        if self.running:
+            self.plotData()
+            if self.iScan >= self.numScans:
+                self.iScan = 0
+                self.iArray += 1
+                self.simulator.step()
+            if self.iArray >= self.arrayLen:
+                self.stop()
 
     def stop(self):
+        self.running = False
         self.spectrometerFrame.setRunning(False)
         if self.timer is not None:
             self.timer.stop()
