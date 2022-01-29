@@ -186,7 +186,7 @@ class Simulator():
                 SNR = helpFie.getGamma(self.settings['observe']) * np.sqrt(helpFie.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)
                 SNR *= (sol.t[1]-sol.t[0]) / 10.0
                 noise = np.random.normal(0, 1, len(data[0])) + 1j*np.random.normal(0, 1, len(data[0]))
-                fid = SNR * (data[0] - 1j*data[1]) + noise/np.sqrt(float(numSpins))
+                fid = SNR * (data[0] - 1j*data[1]) + 0*noise/np.sqrt(float(numSpins))
                 fid *= 0.01 # Arbitrary scaling of the signal
                 scanResults.append(fid)
         if len(scanResults) > 0:

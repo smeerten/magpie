@@ -44,7 +44,7 @@ REALTIME = False
 TIMEDELAY = 500 # ms
 
 ISOTOPES = loadIsotopes.getIsotopes('IsotopeProperties')
-NUCLEI = [x for x in ISOTOPES.keys() if not x.startswith('-')]
+NUCLEI = [x for x in ISOTOPES.keys() if x in ['1H','13C']] # Filter nuclei for now.
 
 class MainProgram(QtWidgets.QMainWindow):
 
