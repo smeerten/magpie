@@ -29,7 +29,7 @@ import sample
 import helperFunctions as helpFie
 
 
-BITS = 8
+BITS = 10
 
 NVALS = 2**BITS
 HRANGE = NVALS // 2 
@@ -73,7 +73,7 @@ class Simulator():
         if self.sample is not None:
             self.allSpins = np.array(list(self.sample.expandBroadening(self.sample.expandSystems(self.settings['B0'], self.settings['observe']))))
             if len(self.allSpins) == 0: # When there are no spins, include a 'zero' spin
-                self.allSpins = np.array([[0.0, 0.0, 1.0, 1.0, 1.0]])
+                self.allSpins = np.array([[0.0, 0.0, 1.0, 1.0]])
             self.allSpinsCurrentAmp = np.copy(self.allSpins[:,1])
         else:
             self.allSpins = None
@@ -184,10 +184,10 @@ class Simulator():
             if pulseStep['type'] == 'FID':
                 # TODO: proper scaling factor for noise factor
                 SNR = helpFie.getGamma(self.settings['observe']) * np.sqrt(helpFie.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)
-                SNR *= (sol.t[1]-sol.t[0]) / 10.0
+                SNR *= (sol.t[1]-sol.t[0])
                 noise = np.random.normal(0, 1, len(data[0])) + 1j*np.random.normal(0, 1, len(data[0]))
                 fid = SNR * (data[0] - 1j*data[1]) + noise/np.sqrt(float(numSpins))
-                fid *= 0.01 # Arbitrary scaling of the signal
+                fid *= 0.001 # Arbitrary scaling of the signal
                 scanResults.append(fid)
         if len(scanResults) > 0:
             scanResults = np.concatenate(scanResults)

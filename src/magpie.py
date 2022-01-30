@@ -53,7 +53,6 @@ class MainProgram(QtWidgets.QMainWindow):
         #self.setAcceptDrops(True)
         self.main_widget = QtWidgets.QWidget(self)
         self.setCentralWidget(self.main_widget)
-
         self.simulator = simulator.Simulator()
         self.pulseSeqName = None
         self.sampleName = None
@@ -101,6 +100,8 @@ class MainProgram(QtWidgets.QMainWindow):
         return self.simulator.settings
     
     def simulate(self):
+        if self.pulseSeqName is None or self.sampleName is None:
+            return
         self.stop()
         self.running = True
         self.spectrometerFrame.setRunning(True)
@@ -767,6 +768,7 @@ class SpectrometerFrame(QtWidgets.QFrame):
         grid.addWidget(QtWidgets.QLabel('# Scans:'),10,0)
         self.scanBox = QtWidgets.QSpinBox()
         self.scanBox.setMinimum(1)
+        self.scanBox.setMaximum(10000)
         grid.addWidget(self.scanBox,10,1)
         
         self.acquirePush = QtWidgets.QPushButton('Acquire')
