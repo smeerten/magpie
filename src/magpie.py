@@ -53,6 +53,8 @@ class MainProgram(QtWidgets.QMainWindow):
         #self.setAcceptDrops(True)
         self.main_widget = QtWidgets.QWidget(self)
         self.setCentralWidget(self.main_widget)
+        self.statusBar = QtWidgets.QStatusBar(self)
+        self.setStatusBar(self.statusBar)
         self.simulator = simulator.Simulator()
         self.pulseSeqName = None
         self.sampleName = None
@@ -73,22 +75,36 @@ class MainProgram(QtWidgets.QMainWindow):
         self.mainFrame.addWidget(self.exportFrame,2,0,1,2)
         self.resize(800, 700)
         self.show()
+        
+    def dispMsg(self, msg, color='red'):
+        if color == 'red':
+            self.statusBar.setStyleSheet("QStatusBar{padding-left:8px;color:red;}")
+        else:
+            self.statusBar.setStyleSheet("QStatusBar{padding-left:8px;}")
+        self.statusBar.showMessage(msg, 10000)
 
     def loadPulseSeq(self):
         fname, ftype = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '../pulseSeqs/', 'Pulse sequence (*.csv)')
         if fname:
-            self.simulator.loadPulseSeq(fname)
-            self.pulseSeqName = os.path.splitext(os.path.basename(fname))[0]
-            self.drawPulseSeq()
-            self.spectrometerFrame.upd()
+            try:
+                self.simulator.loadPulseSeq(fname)
+                self.pulseSeqName = os.path.splitext(os.path.basename(fname))[0]
+                self.drawPulseSeq()
+                self.spectrometerFrame.upd()
+            except Exception:
+                self.dispMsg('Error on loading pulse sequence.')
+
 
     def loadSample(self):
         fname, ftype = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '../samples/', 'Sample (*.txt)')
         if fname:
-            self.simulator.setSample(sample.loadSampleFile(fname))
-            self.sampleName = os.path.splitext(os.path.basename(fname))[0]
-            self.spectrometerFrame.upd()
-            
+            try:
+                self.simulator.setSample(sample.loadSampleFile(fname))
+                self.sampleName = os.path.splitext(os.path.basename(fname))[0]
+                self.spectrometerFrame.upd()
+            except Exception:
+                self.dispMsg('Error on loading sample file.')
+                
     def drawPulseSeq(self):
         self.plotFrame.drawPulseSeq(self.simulator.settings['observe'], self.simulator.pulseSeq)
         self.paramFrame.setPulseSeq(self.simulator.pulseSeq)
@@ -106,9 +122,14 @@ class MainProgram(QtWidgets.QMainWindow):
         self.running = True
         self.spectrometerFrame.setRunning(True)
         self.arrayLen, parameters = self.paramFrame.getParameters()
+        if parameters is None:
+            self.stop()
+            return          
+
         if self.arrayLen is None:
             self.arrayLen = 1
         nuclei, field, offset, gain, self.numScans = self.spectrometerFrame.getSettings()
+        
         self.simulator.setSettings(field, nuclei, offset, gain)
         self.simulator.setPulseSeq(parameters)
         self.simulator.reset()
@@ -201,6 +222,9 @@ class ParameterFrame(QtWidgets.QTabWidget):
         pars = []
         for wid in self.parWidgets:
             arrayLen, par = wid.returnValues()
+            if par is None:
+                self.main.dispMsg('Error on reading parameters.')
+                return None, None
             arrayLens = arrayLens | set([arrayLen])
             pars.append(par)
         if len(arrayLens) == 1:
@@ -208,7 +232,8 @@ class ParameterFrame(QtWidgets.QTabWidget):
         arrayLens = arrayLens - set([None])
         if len(arrayLens) == 1:
             return list(arrayLens)[0], pd.DataFrame(pars)
-        raise RuntimeError('Differing array lengths not supported')
+        self.main.dispMsg('Error on loading parameters: arrays not equal in length.')
+        return None, None
 
     def reset(self):
         self.parWidgets = []
@@ -218,6 +243,7 @@ class ParameterFrame(QtWidgets.QTabWidget):
 class ParameterWidget(QtWidgets.QWidget):
     def __init__(self, parent, pulseStep):
         super(ParameterWidget, self).__init__(parent)
+        self.parFrame = parent
         self.pulseStep = pulseStep
         self.grid = QtWidgets.QGridLayout(self)
         self.grid.setColumnStretch(10, 1)
@@ -234,6 +260,8 @@ class DelayWidget(ParameterWidget):
 
     def returnValues(self):
         timeVal = safeEval(self.time.text())
+        if timeVal is None:
+            return None, None
         if isinstance(timeVal, list):
             arrayLen = len(timeVal)
         else:
@@ -254,13 +282,17 @@ class PulseWidget(ParameterWidget):
 
     def returnValues(self):
         timeVal = safeEval(self.time.text())
+        ampVal = safeEval(self.amplitude.text())
+        if timeVal is None or ampVal is None:
+            return None, None
+        
         if isinstance(timeVal, (int, float)):
             self.pulseStep['time'] = 1e-6 * timeVal
             arrayLen1 = None
         else:
             self.pulseStep['time'] = [1e-6*i for i in timeVal]
             arrayLen1 = len(self.pulseStep['time'])
-        ampVal = safeEval(self.amplitude.text())
+        
         if isinstance(ampVal, (int, float)):
             self.pulseStep['amp'] = 1e3 * ampVal
             arrayLen2 = None
@@ -277,7 +309,6 @@ class PulseWidget(ParameterWidget):
     
 
 class AcqWidget(ParameterWidget):
-    # TODO: recalculate the values after filling in a field
     def __init__(self, parent, pulseStep):
         super(AcqWidget, self).__init__(parent, pulseStep)
         # self.grid.addWidget(QtWidgets.QLabel('Offset [kHz]:'), 0, 0)
@@ -305,7 +336,11 @@ class AcqWidget(ParameterWidget):
         self.grid.addWidget(self.time, 0, 9)
         
     def swChanged(self):
-        sw = safeEval(self.sw.text())
+        try:
+            sw = float(self.sw.text())
+        except Exception:
+            self.parFrame.main.dispMsg('Spectral width not valid.')
+            raise RuntimeError('Spectral width not valid.')
         self.sw.setText(str(sw))
         self.dw.setText(str(1e3/sw))
         points = np.floor(safeEval(self.np.text()))
@@ -313,6 +348,9 @@ class AcqWidget(ParameterWidget):
         
     def dwChanged(self):
         dw = safeEval(self.dw.text())
+        if dw is None:
+            self.parFrame.main.dispMsg('Dwell time not valid.')
+            raise RuntimeError('Dwell time not valid.')
         sw = 1/(dw*1e-3)
         self.sw.setText(str(sw))
         self.dw.setText(str(1e3/sw))
@@ -326,8 +364,11 @@ class AcqWidget(ParameterWidget):
         self.time.setText('{:.6g}'.format(points / (sw*1000)))
         
     def returnValues(self):
-        self.pulseStep['time'] = float(self.time.text())
-        self.pulseStep['amp'] = int(self.np.text())
+        try:
+            self.pulseStep['time'] = float(self.time.text())
+            self.pulseStep['amp'] = int(self.np.text())
+        except Exception:
+            return None, None
         # self.pulseStep['offset'] = float(self.offset.text())
         return None, self.pulseStep
     
