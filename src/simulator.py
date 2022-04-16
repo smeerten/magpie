@@ -46,14 +46,27 @@ def ADC(fid):
 
 def diffEq(t, M, B, T1, T2, M0):
     Bx, By, Bz = B
-    
     mat = np.array([[-1/T2, Bz,  -By],
                     [-Bz,   -1/T2, Bx],
                     [By,   -Bx,  -1/T1]])
     dMdt = np.matmul(mat, M)
     dMdt[2] += M0/T1
     return dMdt
-    
+
+def diffEqExc(t, M, B, T1, T2, M0, k):
+    Bx0, By0, Bz0 = B[0]
+    Bx1, By1, Bz1 = B[1]
+    mat = np.array([[-1/T2[0]-k, Bz0, -By0, k, 0, 0],
+                    [-Bz0, -1/T2[0]-k, Bx0, 0, k, 0],
+                    [By0, -Bx0, -1/T1[0]-k, 0, 0, k],
+                    [k, 0, 0, -1/T2[1]-k, Bz1, -By1],
+                    [0, k, 0, -Bz1, -1/T2[1]-k, Bx1],
+                    [0, 0, k, By1, -Bx1, -1/T1[1]-k]])
+    dMdt = np.matmul(mat, M)
+    dMdt[2] += M0[0]/T1[0]
+    dMdt[5] += M0[1]/T1[1]
+    return dMdt
+
 
 class Simulator():
     
@@ -63,7 +76,8 @@ class Simulator():
         else:
             self.settings = settings
         self.sample = sample
-        self.allSpins = None
+        self.allSpins = None # array with spin information, column order: [Frequency, Intensity, T1, T2]
+        self.allPairs = None # array with exchanging pairs information, column order: [Frequency_0, Frequency_1, Intensity_0, Intensity_1, T1_0, T1_1, T2_0, T2_1, k]
         self.pulseSeq = None
         if pulseSeq is not None:
             self.loadPulseSeq(pulseSeq)
@@ -75,9 +89,13 @@ class Simulator():
             if len(self.allSpins) == 0: # When there are no spins, include a 'zero' spin
                 self.allSpins = np.array([[0.0, 0.0, 1.0, 1.0]])
             self.allSpinsCurrentAmp = np.copy(self.allSpins[:,1])
+            self.allPairs = np.array(list(self.sample.expandPairs(self.settings['B0'], self.settings['observe'])))
+            self.allpairsCurrentAmp = np.copy(self.allSpins[:,2:4])
         else:
             self.allSpins = None
+            self.allPairs = None
             self.allSpinsCurrentAmp = None
+            self.allPairsCurrentAmp = None
         self.phaseIter = 0
         self.arrayIter = 0
         self.FID = []
@@ -130,8 +148,12 @@ class Simulator():
             timeLists = timeLists.apply(lambda x: x[self.arrayIter % len(x)])
             time.sleep(timeLists.sum() + self.pulseSeq['time'][~listFilter].sum())
         for i, spinInfo in enumerate(self.allSpins):
-            Frequency, Intensity, T1, T2 = spinInfo
-            spinFID, self.allSpinsCurrentAmp[i], self.FIDtime = self.simulateSpin(self.allSpinsCurrentAmp[i], Frequency, T1, T2, len(self.allSpins), Intensity)
+            Freq, Intensity, T1, T2 = spinInfo
+            spinFID, self.allSpinsCurrentAmp[i], self.FIDtime = self.simulateSpin(self.allSpinsCurrentAmp[i], Freq, T1, T2, len(self.allSpins), Intensity)
+            fid += spinFID
+        for i, spinInfo in enumerate(self.allPairs):
+            Freq0, Freq1, Intensity0, Intensity1, T1_0, T1_1, T2_0, T2_1, k = spinInfo
+            spinFID, self.allSpinsCurrentAmp[i], self.FIDtime = self.simulateSpin(self.allSpinsCurrentAmp[i], [Freq0, Freq1], [T1_0, T1_1], [T2_0, T2_1], None, [Intensity0, Intensity1], k)
             fid += spinFID
         fid = ADC(self.settings['gain']*fid)
         if len(self.FID) == self.arrayIter:
@@ -142,8 +164,11 @@ class Simulator():
             self.scaledFID[self.arrayIter] = self.FID[self.arrayIter] / (self.phaseIter + 1)
         self.phaseIter += 1
 
-    def simulateSpin(self, amp, freq, T1, T2, numSpins, M0):
-        M = np.array([0, 0, amp])
+    def simulateSpin(self, amp, freq, T1, T2, numSpins, M0, k=None):
+        if k is None:
+            M = np.array([0, 0, amp])
+        else:
+            M = np.array([0, 0, amp[0], 0, 0, amp[1]])
         scanResults = []
         FIDtime = 0
         freq -= self.settings['offset']
@@ -156,10 +181,16 @@ class Simulator():
                 if hasattr(phase, '__iter__'):
                     phase = phase[self.phaseIter % len(phase)]
                 phase = np.deg2rad(phase)
-                B = 2 * np.pi * np.array([rf*np.cos(phase), rf*np.sin(phase), freq])
+                if k is None:
+                    B = 2 * np.pi * np.array([rf*np.cos(phase), rf*np.sin(phase), freq])
+                else:
+                    B = 2 * np.pi * np.array([rf*np.cos(phase), rf*np.sin(phase), freq[0], rf*np.cos(phase), rf*np.sin(phase), freq[1]])
+
             else:
-                #B = 2 * np.pi * np.array([0, 0, freq])
-                B = 2 * np.pi * np.array([0, 0, 0]) # rotating frame per spin
+                if k is None:
+                    B = 2 * np.pi * np.array([0, 0, 0]) # rotating frame per spin
+                else:
+                    B = 2 * np.pi * np.array([0, 0, 0, 0, 0, freq[1]-freq[0]]) # rotating frame for spin 1
             timeStep = pulseStep['time']
             if hasattr(timeStep, '__iter__'):
                 timeStep = timeStep[self.arrayIter % len(timeStep)]
@@ -169,31 +200,49 @@ class Simulator():
                 FIDtime += timeStep
             else:
                 t_eval = None
-            sol = solve_ivp(diffEq, (0, timeStep), M, t_eval=t_eval, args=(B, T1, T2, M0), vectorized=True)
+            if k is None:
+                sol = solve_ivp(diffEq, (0, timeStep), M, t_eval=t_eval, args=(B, T1, T2, M0), vectorized=True)
+            else:
+                sol = solve_ivp(diffEqExc, (0, timeStep), M, t_eval=t_eval, args=(B, T1, T2, M0, k), vectorized=True)
             if pulseStep['type'] == 'pulse':
                 data = np.copy(sol.y)
             else:
                 # Convert spin rot-frame to global rot-frame
                 data = np.copy(sol.y)
-                phi = 2 * np.pi * freq * sol.t
-                data[0] = np.cos(phi) * sol.y[0] + np.sin(phi) * sol.y[1]
-                data[1] = -1 * np.sin(phi) * sol.y[0] + np.cos(phi) * sol.y[1]
+                if k is None:
+                    phi = 2 * np.pi * freq * sol.t
+                    data[0] = np.cos(phi) * sol.y[0] + np.sin(phi) * sol.y[1]
+                    data[1] = -1 * np.sin(phi) * sol.y[0] + np.cos(phi) * sol.y[1]
+                else:
+                    phi = 2 * np.pi * freq[0] * sol.t
+                    data[0] = np.cos(phi) * sol.y[0] + np.sin(phi) * sol.y[1]
+                    data[1] = -1 * np.sin(phi) * sol.y[0] + np.cos(phi) * sol.y[1]
+                    data[3] = np.cos(phi) * sol.y[3] + np.sin(phi) * sol.y[4]
+                    data[4] = -1 * np.sin(phi) * sol.y[3] + np.cos(phi) * sol.y[4]
             M = data[:,-1]
             if pulseStep['type'] == 'sat':
                 M *= 0
             if pulseStep['type'] == 'FID':
                 # TODO: proper scaling factor for noise factor
-                SNR = helpFie.getGamma(self.settings['observe']) * np.sqrt(helpFie.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)
+                SNR = 0.5 * helpFie.getGamma(self.settings['observe']) * np.sqrt(helpFie.getGamma(self.settings['observe'])**3 * self.settings['B0']**3)
                 SNR *= (sol.t[1]-sol.t[0])
                 noise = np.random.normal(0, 1, len(data[0])) + 1j*np.random.normal(0, 1, len(data[0]))
-                fid = SNR * (data[0] - 1j*data[1]) + noise/np.sqrt(float(numSpins))
+                if k is None:
+                    fid = SNR * (data[0] - 1j*data[1]) + noise/np.sqrt(float(numSpins))
+                else:
+                    # No noise in the pairs!
+                    fid = SNR * (data[0] - 1j*data[1] + data[3] - 1j*data[4])
                 fid *= 0.001 # Arbitrary scaling of the signal
                 scanResults.append(fid)
         if len(scanResults) > 0:
             scanResults = np.concatenate(scanResults)
         else:
             scanResults = np.array(scanResults)
-        return scanResults, M[2], FIDtime
+        if k is None:
+            finalMz = M[2]
+        else:
+            finalMz = [M[2], M[5]]
+        return scanResults, finalMz, FIDtime
 
     def saveMatlabFile(self, filePath, name='FID'):
         if len(self.scaledFID) == 0:

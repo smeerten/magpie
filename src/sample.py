@@ -115,7 +115,7 @@ class sample():
 
         Parameters
         ----------
-        Jmatrix: 2D array holding the J value between nuclei in Hz. (Symmatric)
+        Jmatrix: 2D array holding the J value between nuclei in Hz. (Symmetric)
         amp: amplitude (concentration) of the molecule
         T1: float, master T1 value is seconds
         T2: float, master T2 value is seconds
@@ -157,6 +157,10 @@ class sample():
     def removeMolecule(self,index):
         self.moleculeList.pop(index)
 
+    def expandPairs(self, B0, observer, decouple=None):
+        # TODO: implement a method to generate exchanging pairs
+        return []
+        
     def expandSystems(self,B0,observe,decouple = None):
         """
         Expands the spin systems in individual 'lines', with frequency, intensity,
