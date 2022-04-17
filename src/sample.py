@@ -101,6 +101,7 @@ def lorentz(T2,axis):
 class sample():
     def __init__(self):
         self.moleculeList = []
+        self.pairList = []
 
     def addMolecule(self,nucl,Jmatrix,amp,T1=None,T2=None,T2prime=None):
         """
@@ -154,14 +155,22 @@ class sample():
         molecule['amp'] = amp
         self.moleculeList.append(molecule)
 
-    def removeMolecule(self,index):
+    def removeMolecule(self, index):
         self.moleculeList.pop(index)
 
-    def expandPairs(self, B0, observer, decouple=None):
+    def removepair(self, index):
+        self.pairList.pop(index)
+
+    def expandPairs(self, B0, observe, decouple=None):
         # TODO: implement a method to generate exchanging pairs
+        # shift0 = -1.2
+        # shift1 = -1.8
+        # freq0 = shift0 * B0 * helpFie.getGamma(observe)
+        # freq1 = shift1 * B0 * helpFie.getGamma(observe)
+        # return [[freq0, freq1, 1, 1, 1, 1, 1, 1, 1000]]
         return []
         
-    def expandSystems(self,B0,observe,decouple = None):
+    def expandSystems(self, B0, observe, decouple=None):
         """
         Expands the spin systems in individual 'lines', with frequency, intensity,
         relaxation values.

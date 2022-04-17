@@ -54,14 +54,15 @@ def diffEq(t, M, B, T1, T2, M0):
     return dMdt
 
 def diffEqExc(t, M, B, T1, T2, M0, k):
-    Bx0, By0, Bz0 = B[0]
-    Bx1, By1, Bz1 = B[1]
-    mat = np.array([[-1/T2[0]-k, Bz0, -By0, k, 0, 0],
-                    [-Bz0, -1/T2[0]-k, Bx0, 0, k, 0],
-                    [By0, -Bx0, -1/T1[0]-k, 0, 0, k],
-                    [k, 0, 0, -1/T2[1]-k, Bz1, -By1],
-                    [0, k, 0, -Bz1, -1/T2[1]-k, Bx1],
-                    [0, 0, k, By1, -Bx1, -1/T1[1]-k]])
+    Bx0, By0, Bz0, Bx1, By1, Bz1 = B
+    relk0 = k * M0[0] / np.mean(M0)
+    relk1 = k * M0[1] / np.mean(M0)
+    mat = np.array([[-1/T2[0]-relk0, Bz0, -By0, relk0, 0, 0],
+                    [-Bz0, -1/T2[0]-relk0, Bx0, 0, relk0, 0],
+                    [By0, -Bx0, -1/T1[0]-relk0, 0, 0, relk0],
+                    [relk1, 0, 0, -1/T2[1]-relk1, Bz1, -By1],
+                    [0, relk1, 0, -Bz1, -1/T2[1]-relk1, Bx1],
+                    [0, 0, relk1, By1, -Bx1, -1/T1[1]-relk1]])
     dMdt = np.matmul(mat, M)
     dMdt[2] += M0[0]/T1[0]
     dMdt[5] += M0[1]/T1[1]
@@ -89,8 +90,11 @@ class Simulator():
             if len(self.allSpins) == 0: # When there are no spins, include a 'zero' spin
                 self.allSpins = np.array([[0.0, 0.0, 1.0, 1.0]])
             self.allSpinsCurrentAmp = np.copy(self.allSpins[:,1])
-            self.allPairs = np.array(list(self.sample.expandPairs(self.settings['B0'], self.settings['observe'])))
-            self.allpairsCurrentAmp = np.copy(self.allSpins[:,2:4])
+            self.allPairs = np.array(self.sample.expandPairs(self.settings['B0'], self.settings['observe']))
+            if len(self.allPairs) > 0:
+                self.allPairsCurrentAmp = np.copy(self.allPairs[:,2:4])
+            else:
+                self.allPairsCurrentAmp = None
         else:
             self.allSpins = None
             self.allPairs = None
@@ -153,7 +157,7 @@ class Simulator():
             fid += spinFID
         for i, spinInfo in enumerate(self.allPairs):
             Freq0, Freq1, Intensity0, Intensity1, T1_0, T1_1, T2_0, T2_1, k = spinInfo
-            spinFID, self.allSpinsCurrentAmp[i], self.FIDtime = self.simulateSpin(self.allSpinsCurrentAmp[i], [Freq0, Freq1], [T1_0, T1_1], [T2_0, T2_1], None, [Intensity0, Intensity1], k)
+            spinFID, self.allPairsCurrentAmp[i], self.FIDtime = self.simulateSpin(self.allPairsCurrentAmp[i], np.array([Freq0, Freq1]), np.array([T1_0, T1_1]), np.array([T2_0, T2_1]), None, np.array([Intensity0, Intensity1]), k)
             fid += spinFID
         fid = ADC(self.settings['gain']*fid)
         if len(self.FID) == self.arrayIter:
@@ -188,9 +192,11 @@ class Simulator():
 
             else:
                 if k is None:
+                    rotFreq = freq
                     B = 2 * np.pi * np.array([0, 0, 0]) # rotating frame per spin
                 else:
-                    B = 2 * np.pi * np.array([0, 0, 0, 0, 0, freq[1]-freq[0]]) # rotating frame for spin 1
+                    rotFreq = np.mean(freq)
+                    B = 2 * np.pi * np.array([0, 0, freq[0]-rotFreq, 0, 0, freq[1]-rotFreq]) # rotating frame for spin 1
             timeStep = pulseStep['time']
             if hasattr(timeStep, '__iter__'):
                 timeStep = timeStep[self.arrayIter % len(timeStep)]
@@ -209,12 +215,11 @@ class Simulator():
             else:
                 # Convert spin rot-frame to global rot-frame
                 data = np.copy(sol.y)
+                phi = 2 * np.pi * rotFreq * sol.t
                 if k is None:
-                    phi = 2 * np.pi * freq * sol.t
                     data[0] = np.cos(phi) * sol.y[0] + np.sin(phi) * sol.y[1]
                     data[1] = -1 * np.sin(phi) * sol.y[0] + np.cos(phi) * sol.y[1]
                 else:
-                    phi = 2 * np.pi * freq[0] * sol.t
                     data[0] = np.cos(phi) * sol.y[0] + np.sin(phi) * sol.y[1]
                     data[1] = -1 * np.sin(phi) * sol.y[0] + np.cos(phi) * sol.y[1]
                     data[3] = np.cos(phi) * sol.y[3] + np.sin(phi) * sol.y[4]
