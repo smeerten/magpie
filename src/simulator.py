@@ -90,8 +90,8 @@ class Simulator():
             if len(self.allSpins) == 0: # When there are no spins, include a 'zero' spin
                 self.allSpins = np.array([[0.0, 0.0, 1.0, 1.0]])
             self.allSpinsCurrentAmp = np.copy(self.allSpins[:,1])
-            self.allPairs = np.array(self.sample.expandPairs(self.settings['B0'], self.settings['observe']))
-            if len(self.allPairs) > 0:
+            self.allPairs = np.array(list(self.sample.expandPairs(self.settings['B0'], self.settings['observe'])))
+            if self.allPairs is not None and len(self.allPairs) > 0:
                 self.allPairsCurrentAmp = np.copy(self.allPairs[:,2:4])
             else:
                 self.allPairsCurrentAmp = None

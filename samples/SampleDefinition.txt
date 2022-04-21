@@ -10,7 +10,7 @@ spin 1H 0 1
 spin 1H 0 1 _ 1 _
 J 1 2 10 #J spin1 spin2 J[hz]
 Jmatrix [[0,10],[10,0]] # Jmatrix in python format.
-
+pair 1H 1 2 100 1 2 _ _ _ _ # isotope shift0 shift1 k amp0 amp1 T1_0 T1_1 T2_0 T2_1 k
 
 # Notes
 Either Jmatrix or J statments are allowed. Not both.

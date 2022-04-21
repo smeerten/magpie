@@ -101,9 +101,8 @@ def lorentz(T2,axis):
 class sample():
     def __init__(self):
         self.moleculeList = []
-        self.pairList = []
 
-    def addMolecule(self,nucl,Jmatrix,amp,T1=None,T2=None,T2prime=None):
+    def addMolecule(self,nucl,Jmatrix,amp,T1=None,T2=None,T2prime=None, pairList=None):
         """
         nuclei: list of tuples with (type,shift,multi,relax=None)
             Type: string value of the nucleus ('1H')
@@ -134,6 +133,7 @@ class sample():
         molecule = dict()
         # Create a tuple for each nucleus
         spins = []
+        pairs = []
         for pos, s in enumerate(nucl):
             if len(s) == 4:
                 Type, shift, multi, relax = s
@@ -145,21 +145,31 @@ class sample():
                     relax[2] = T2prime
             elif len(s) == 3:
                 Type, shift, multi = s
-                relax = [T1,T2,T2prime]
-            if relax[0] is None or relax[1] is None or relax[2] is None:
+                relax = [T1, T2, T2prime]
+            if None in relax:
                 print(f'Spin #{pos} is missing a relaxation value')
-
-            spins.append([Type,shift,multi,relax[0],relax[1],relax[2]])
+            spins.append([Type, shift, multi] + relax)
         molecule['spins'] = spins
+        for pos, s in enumerate(pairList):
+            Type, shift0, shift1, int0, int1, relax, k = s
+            if relax[0] is None:
+                relax[0] = T1
+            if relax[1] is None:
+                relax[1] = T1
+            if relax[2] is None:
+                relax[2] = T2
+            if relax[3] is None:
+                relax[3] = T2
+            if None in relax:
+                print(f'Pair #{pos} is missing a relaxation value')
+            pairs.append([Type, shift0, shift1, int0, int1] + relax + [k])
+        molecule['pairs'] = pairs
         molecule['J'] = Jmatrix
         molecule['amp'] = amp
         self.moleculeList.append(molecule)
 
     def removeMolecule(self, index):
         self.moleculeList.pop(index)
-
-    def removepair(self, index):
-        self.pairList.pop(index)
 
     def expandPairs(self, B0, observe, decouple=None):
         # TODO: implement a method to generate exchanging pairs
@@ -168,7 +178,20 @@ class sample():
         # freq0 = shift0 * B0 * helpFie.getGamma(observe)
         # freq1 = shift1 * B0 * helpFie.getGamma(observe)
         # return [[freq0, freq1, 1, 1, 1, 1, 1, 1, 1000]]
-        return []
+        for system in self.moleculeList:
+            pairs = system['pairs']
+            for pair in pairs:
+                if pair[0] == observe:
+                    freq0 = pair[1] * B0 * helpFie.getGamma(observe)
+                    freq1 = pair[2] * B0 * helpFie.getGamma(observe)
+                    int0 = pair[3]
+                    int1 = pair[4]
+                    T1_0 = pair[5]
+                    T1_1 = pair[6]
+                    T2_0 = pair[7]
+                    T2_1 = pair[8]
+                    k = pair[9]
+                    yield [freq0, freq1, int0, int1, T1_0, T1_1, T2_0, T2_1, k]
         
     def expandSystems(self, B0, observe, decouple=None):
         """
@@ -187,15 +210,12 @@ class sample():
         List of list with the individual 'lines', having:
             [Frequency, Intensity, T1, T2, T2prime]
         """
-
         # Scale the J matrix before, with the decoupling
-
         Expanded = []
         for system in self.moleculeList:
             spins = system['spins']
             concentration = system['amp']
             J = system['J']
-            
             # Splitting patterns
             FreqSplits = []
             IntSplits = []
@@ -205,15 +225,12 @@ class sample():
                 Split, IntenFull = getSplittingPattern(I,Multi)
                 FreqSplits.append(Split)
                 IntSplits.append(IntenFull)
-
             # Jscaling
             if decouple is not None:
                 J = scaleScalarCouplings(J,spins,decouple,B0)
-               
             for pos, spin in enumerate(spins):
                 if spin[0] == observe:
                     Jlist = J[pos,:]
-
                     Shift = spin[1]
                     Multi = spin[2]
                     freqList = np.array([Shift * B0 * helpFie.getGamma(observe)]) # Freq of spin in Hz
@@ -224,12 +241,11 @@ class sample():
                             IntMatr = IntSplits[pos2]
                             freqList = kronAdd(freqList,Jmatr)
                             intList = np.kron(intList,IntMatr)
-                    
                     for place, _ in enumerate(freqList):
                         yield [freqList[place],intList[place] * concentration,spin[3],spin[4],spin[5]]
 
 
-    def expandBroadening(self,spinList,widthMax = 3, factor = 40):
+    def expandBroadening(self, spinList, widthMax=3, factor=40):
         """
         Expand each spin, to take T2' broadening (e.g. shimming)
         into account. Do this via subsampling with lorentz lines.
@@ -282,6 +298,7 @@ def loadSampleFile(loc):
         lin = lines[start+1:end]
         molecule = dict()
         molecule['spins'] = []
+        molecule['pairs'] = []
         for elem in lin:
             if elem.startswith('amount'):
                 molecule['amount'] = float(elem.split()[1]) * mainAmount
@@ -307,6 +324,14 @@ def loadSampleFile(loc):
                 shift = float(shift)
                 multi = int(multi)
                 molecule['spins'].append([iso,shift,multi,relax])
+            elif elem.startswith('pair '):
+                iso, shift0, shift1, k, int0, int1, T1_0, T1_1, T2_0, T2_1 = elem.split()[1:]
+                relax = [T1_0, T1_1, T2_0, T2_1]
+                relax = [float(i) if i != '_' else None for i in relax]
+                amp = [int0, int1]
+                amp = [float(i) if i != '_' else None for i in amp]
+                shift0, shift1, k = float(shift0), float(shift1), float(k)
+                molecule['pairs'].append([iso, shift0, shift1] + amp + [relax, k])
             elif elem.startswith('J '):
                 spin1, spin2, Jval = elem.split()[1:]
                 if not 'J' in molecule:
@@ -333,7 +358,7 @@ def loadSampleFile(loc):
                 raise Exception('Jmaxtrix incorrect size')
         else:
             molecule['Jmatrix'] = np.zeros([nspins,nspins])
-        tube.addMolecule(molecule['spins'],molecule['Jmatrix'],molecule['amount'],molecule['T1'],molecule['T2'],molecule['T2prime'])
+        tube.addMolecule(molecule['spins'], molecule['Jmatrix'], molecule['amount'], molecule['T1'], molecule['T2'], molecule['T2prime'], molecule['pairs'])
 
     return tube
 
