@@ -20,9 +20,11 @@
 import numpy as np
 import pandas as pd
 from scipy.integrate import solve_ivp
+from scipy.interpolate import interp1d
 import ast
 import matplotlib.pyplot as plt
 import scipy.io
+import pathlib
 import time
 
 import sample
@@ -44,25 +46,36 @@ def ADC(fid):
     fidImag = DIGITPOINTS[np.digitize(np.imag(fid), DIGITBINS)]
     return fidReal + 1j*fidImag
 
-def diffEq(t, M, B, T1, T2, M0):
+def diffEq(t, M, totalTime, B, T1, T2, M0, shape=None):
     Bx, By, Bz = B
-    mat = np.array([[-1/T2, Bz,  -By],
+    if shape is not None and totalTime != 0:
+        if t > totalTime:
+            amp = 0
+        else:
+            amp = shape(t/totalTime)
+    else:
+        amp = 1.0
+    mat = np.array([[-1/T2, Bz,  -amp*By],
                     [-Bz,   -1/T2, Bx],
-                    [By,   -Bx,  -1/T1]])
+                    [amp*By,   -amp*Bx,  -1/T1]])
     dMdt = np.matmul(mat, M)
     dMdt[2] += M0/T1
     return dMdt
 
-def diffEqExc(t, M, B, T1, T2, M0, k):
+def diffEqExc(t, M, totalTime, B, T1, T2, M0, k, shape=None):
     Bx0, By0, Bz0, Bx1, By1, Bz1 = B
     relk0 = k * M0[0] / np.mean(M0)
     relk1 = k * M0[1] / np.mean(M0)
-    mat = np.array([[-1/T2[0]-relk0, Bz0, -By0, relk0, 0, 0],
-                    [-Bz0, -1/T2[0]-relk0, Bx0, 0, relk0, 0],
-                    [By0, -Bx0, -1/T1[0]-relk0, 0, 0, relk0],
-                    [relk1, 0, 0, -1/T2[1]-relk1, Bz1, -By1],
-                    [0, relk1, 0, -Bz1, -1/T2[1]-relk1, Bx1],
-                    [0, 0, relk1, By1, -Bx1, -1/T1[1]-relk1]])
+    if shape is not None and totalTime != 0:
+        amp = shape(t/totalTime)
+    else:
+        amp = 1.0
+    mat = np.array([[-1/T2[0]-relk0, Bz0, -amp*By0, relk0, 0, 0],
+                    [-Bz0, -1/T2[0]-relk0, amp*Bx0, 0, relk0, 0],
+                    [amp*By0, -amp*Bx0, -1/T1[0]-relk0, 0, 0, relk0],
+                    [relk1, 0, 0, -1/T2[1]-relk1, Bz1, -amp*By1],
+                    [0, relk1, 0, -Bz1, -1/T2[1]-relk1, amp*Bx1],
+                    [0, 0, relk1, amp*By1, -amp*Bx1, -1/T1[1]-relk1]])
     dMdt = np.matmul(mat, M)
     dMdt[2] += M0[0]/T1[0]
     dMdt[5] += M0[1]/T1[1]
@@ -128,12 +141,28 @@ class Simulator():
         Loads the pulse sequence from a given csv file
         """
         pulseSeq = pd.read_csv(name, index_col=['name','type'])
-        pulseSeq = pulseSeq.applymap(lambda x: ast.literal_eval(x) if isinstance(x,str) else x)
+        pulseSeq[['time', 'amp', 'phase']] = pulseSeq[['time', 'amp', 'phase']].applymap(lambda x: ast.literal_eval(x) if isinstance(x,str) else x)
         pulseSeq = pulseSeq.reset_index()
+        if 'shapefile' in pulseSeq.keys():
+            self.pulseshapes = self.loadShapeFiles(pulseSeq['shapefile'].dropna().unique())
+        else:
+            self.pulseshapes = {}
         self.pulseSeq = pulseSeq
 
     def setPulseSeq(self, pulseSeq):
         self.pulseSeq = pulseSeq
+
+    def loadShapeFiles(self, filenames):
+        pulseshapes = {}
+        for f in filenames:
+            shapeFile = pathlib.Path(__file__).parents[1] / 'shapefiles' / f # shapefile in library
+            if not shapeFile.is_file():
+                # If not in library, the filename is the filepath
+                shapeFile = pathlib.Path(f)
+            shape = np.loadtxt(shapeFile)
+            shapefunc = interp1d(np.linspace(0,1,len(shape)), shape)
+            pulseshapes[f] = shapefunc
+        return pulseshapes
 
     def getData(self):
         if len(self.scaledFID) == 0:
@@ -177,7 +206,7 @@ class Simulator():
         FIDtime = 0
         freq -= self.settings['offset']
         for ind, pulseStep in self.pulseSeq.iterrows():
-            if pulseStep['type'] == 'pulse':
+            if pulseStep['type'] in ['pulse', 'shapedPulse']:
                 rf = pulseStep['amp']
                 if hasattr(rf, '__iter__'):
                     rf = rf[self.arrayIter % len(rf)]
@@ -189,7 +218,6 @@ class Simulator():
                     B = 2 * np.pi * np.array([rf*np.cos(phase), rf*np.sin(phase), freq])
                 else:
                     B = 2 * np.pi * np.array([rf*np.cos(phase), rf*np.sin(phase), freq[0], rf*np.cos(phase), rf*np.sin(phase), freq[1]])
-
             else:
                 if k is None:
                     rotFreq = freq
@@ -206,11 +234,15 @@ class Simulator():
                 FIDtime += timeStep
             else:
                 t_eval = None
-            if k is None:
-                sol = solve_ivp(diffEq, (0, timeStep), M, t_eval=t_eval, args=(B, T1, T2, M0), vectorized=True)
+            if pulseStep['type'] == 'shapedPulse':
+                shapeFunc = self.pulseshapes[pulseStep['shapefile']]
             else:
-                sol = solve_ivp(diffEqExc, (0, timeStep), M, t_eval=t_eval, args=(B, T1, T2, M0, k), vectorized=True)
-            if pulseStep['type'] == 'pulse':
+                shapeFunc = None
+            if k is None:
+                sol = solve_ivp(diffEq, (0, timeStep), M, t_eval=t_eval, args=(timeStep, B, T1, T2, M0, shapeFunc), vectorized=True)
+            else:
+                sol = solve_ivp(diffEqExc, (0, timeStep), M, t_eval=t_eval, args=(timeStep, B, T1, T2, M0, k, shapeFunc), vectorized=True)
+            if pulseStep['type'] in ['pulse', 'shapedPulse']:
                 data = np.copy(sol.y)
             else:
                 # Convert spin rot-frame to global rot-frame

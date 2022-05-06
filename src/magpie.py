@@ -48,8 +48,9 @@ NUCLEI = [x for x in ISOTOPES.keys() if x in ['1H','13C']] # Filter nuclei for n
 
 class MainProgram(QtWidgets.QMainWindow):
 
-    def __init__(self, root):
+    def __init__(self, root, debug=False):
         super(MainProgram, self).__init__()
+        self.debug = debug
         #self.setAcceptDrops(True)
         self.main_widget = QtWidgets.QWidget(self)
         self.setCentralWidget(self.main_widget)
@@ -91,8 +92,10 @@ class MainProgram(QtWidgets.QMainWindow):
                 self.pulseSeqName = os.path.splitext(os.path.basename(fname))[0]
                 self.drawPulseSeq()
                 self.spectrometerFrame.upd()
-            except Exception:
+            except Exception as e:
                 self.dispMsg('Error on loading pulse sequence.')
+                if self.debug:
+                    raise e
 
 
     def loadSample(self):
@@ -102,8 +105,10 @@ class MainProgram(QtWidgets.QMainWindow):
                 self.simulator.setSample(sample.loadSampleFile(fname))
                 self.sampleName = os.path.splitext(os.path.basename(fname))[0]
                 self.spectrometerFrame.upd()
-            except Exception:
+            except Exception as e:
                 self.dispMsg('Error on loading sample file.')
+                if self.debug:
+                    raise e
                 
     def drawPulseSeq(self):
         self.plotFrame.drawPulseSeq(self.simulator.settings['observe'], self.simulator.pulseSeq)
@@ -859,7 +864,8 @@ if __name__ == '__main__':
 
     root = QtWidgets.QApplication(sys.argv)
     #root.setWindowIcon(QtGui.QIcon(os.path.dirname(os.path.realpath(__file__)) + '/Icons/Logo.png'))
-    mainProgram = MainProgram(root)
+    if "debug" in sys.argv:
+        mainProgram = MainProgram(root, debug=True)
     mainProgram.setWindowTitle(f"Magpie - {VERSION}")
     mainProgram.show()
     sys.exit(root.exec_())

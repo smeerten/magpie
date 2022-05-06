@@ -1,0 +1,4 @@
+name,type,time,amp,phase,shapefile
+D1,delay,1
+P1,shapedPulse,2.5e-6,100e3,-90,"sinc"
+Acq,FID,1,4096
