@@ -866,6 +866,9 @@ if __name__ == '__main__':
     #root.setWindowIcon(QtGui.QIcon(os.path.dirname(os.path.realpath(__file__)) + '/Icons/Logo.png'))
     if "debug" in sys.argv:
         mainProgram = MainProgram(root, debug=True)
+    else:
+        mainProgram = MainProgram(root)
+
     mainProgram.setWindowTitle(f"Magpie - {VERSION}")
     mainProgram.show()
     sys.exit(root.exec_())
