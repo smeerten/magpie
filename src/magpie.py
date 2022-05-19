@@ -626,6 +626,8 @@ class SequenceDiagram(AbstractPlotFrame):
                 self.drawDelay(pulseStep['name'])
             elif pulseStep['type'] == 'pulse':
                 self.drawPulse(pulseStep['name'])
+            elif pulseStep['type'] == 'shapedPulse':
+                self.drawShapedPulse(pulseStep['name'])
             elif pulseStep['type'] == 'FID':
                 self.drawAcq(pulseStep['name'])
         self.ax.set_xlim([-1,10])
