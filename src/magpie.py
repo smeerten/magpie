@@ -211,13 +211,13 @@ class ParameterFrame(QtWidgets.QTabWidget):
             return
         for ind, pulseStep in pulseSeq.iterrows():
             if pulseStep['type'] == 'sat':
-                stepWidget = ParameterWidget(self, pulseStep)
+                stepWidget = ParameterWidget(self, pulseStep, pulseStep['name'])
             elif pulseStep['type'] == 'delay':
-                stepWidget = DelayWidget(self, pulseStep)
+                stepWidget = DelayWidget(self, pulseStep, pulseStep['name'])
             elif pulseStep['type'] in ['pulse', 'shapedPulse']:
-                stepWidget = PulseWidget(self, pulseStep)
+                stepWidget = PulseWidget(self, pulseStep, pulseStep['name'])
             elif pulseStep['type'] == 'FID':
-                stepWidget = AcqWidget(self, pulseStep)
+                stepWidget = AcqWidget(self, pulseStep, pulseStep['name'])
             self.parWidgets.append(stepWidget)
             self.addTab(self.parWidgets[-1], pulseStep['name'])
         
@@ -230,7 +230,7 @@ class ParameterFrame(QtWidgets.QTabWidget):
         for wid in self.parWidgets:
             arrayLen, par, message = wid.returnValues()
             if par is None:
-                self.main.dispMsg('Error on reading parameters.')
+                self.main.dispMsg(str(message))
                 return None, None
             arrayLens = arrayLens | set([arrayLen])
             pars.append(par)
@@ -248,10 +248,11 @@ class ParameterFrame(QtWidgets.QTabWidget):
             self.removeTab(0)
 
 class ParameterWidget(QtWidgets.QWidget):
-    def __init__(self, parent, pulseStep):
+    def __init__(self, parent, pulseStep, name):
         super(ParameterWidget, self).__init__(parent)
         self.parFrame = parent
         self.pulseStep = pulseStep
+        self.name = name
         self.grid = QtWidgets.QGridLayout(self)
         self.grid.setColumnStretch(10, 1)
 
@@ -259,8 +260,8 @@ class ParameterWidget(QtWidgets.QWidget):
         return None, self.pulseStep, None
 
 class DelayWidget(ParameterWidget):
-    def __init__(self, parent, pulseStep):
-        super(DelayWidget, self).__init__(parent, pulseStep)
+    def __init__(self, parent, pulseStep, name):
+        super(DelayWidget, self).__init__(parent, pulseStep, name)
         self.grid.addWidget(QtWidgets.QLabel('Duration [s]:'), 0, 0)
         self.time = QtWidgets.QLineEdit(str(self.pulseStep['time']))
         self.grid.addWidget(self.time, 0, 1)
@@ -268,7 +269,7 @@ class DelayWidget(ParameterWidget):
     def returnValues(self):
         timeVal = safeEval(self.time.text())
         if timeVal is None:
-            return None, None, None
+            return None, None, f'Sequence {self.name}: "Duration" not valid.'
         if isinstance(timeVal, list):
             arrayLen = len(timeVal)
         else:
@@ -277,8 +278,8 @@ class DelayWidget(ParameterWidget):
         return arrayLen, self.pulseStep, None
 
 class PulseWidget(ParameterWidget):
-    def __init__(self, parent, pulseStep):
-        super(PulseWidget, self).__init__(parent, pulseStep)
+    def __init__(self, parent, pulseStep, name):
+        super(PulseWidget, self).__init__(parent, pulseStep, name)
         self.grid.addWidget(QtWidgets.QLabel('Duration [µs]:'), 0, 0)
         self.time = QtWidgets.QLineEdit(str(1e6*self.pulseStep['time']))
         self.grid.addWidget(self.time, 0, 1)
@@ -290,8 +291,10 @@ class PulseWidget(ParameterWidget):
     def returnValues(self):
         timeVal = safeEval(self.time.text())
         ampVal = safeEval(self.amplitude.text())
-        if timeVal is None or ampVal is None:
-            return None, None, None
+        if timeVal is None:
+            return None, None, f'Sequence {self.name}: "Duration" not valid.'
+        if ampVal is None:
+            return None, None, f'Sequence {self.name}: "Amplitude" not valid.'
         
         if isinstance(timeVal, (int, float)):
             self.pulseStep['time'] = 1e-6 * timeVal
@@ -316,8 +319,8 @@ class PulseWidget(ParameterWidget):
     
 
 class AcqWidget(ParameterWidget):
-    def __init__(self, parent, pulseStep):
-        super(AcqWidget, self).__init__(parent, pulseStep)
+    def __init__(self, parent, pulseStep, name):
+        super(AcqWidget, self).__init__(parent, pulseStep, name)
         # self.grid.addWidget(QtWidgets.QLabel('Offset [kHz]:'), 0, 0)
         # self.offset = QtWidgets.QLineEdit('0')
         # self.grid.addWidget(self.offset, 0, 1)
@@ -346,28 +349,45 @@ class AcqWidget(ParameterWidget):
         try:
             sw = float(self.sw.text())
         except Exception:
-            self.parFrame.main.dispMsg('Spectral width not valid.')
-            raise RuntimeError('Spectral width not valid.')
+            self.parFrame.main.dispMsg(f'Sequence {self.name}: "Spectral Width" not valid.')
+            raise RuntimeError(f'Sequence {self.name}: "Spectral Width" not valid.')
         self.sw.setText(str(sw))
         self.dw.setText(str(1e3/sw))
-        points = np.floor(safeEval(self.np.text()))
+        try:
+            points = int(np.floor(safeEval(self.np.text())))
+        except Exception:
+            self.parFrame.main.dispMsg(f'Sequence {self.name}: "# of points" not valid.')
+            raise RuntimeError(f'Sequence {self.name}: "# of points" not valid.')
         self.time.setText('{:.6g}'.format(points / (sw*1000)))
         
     def dwChanged(self):
         dw = safeEval(self.dw.text())
         if dw is None:
-            self.parFrame.main.dispMsg('Dwell time not valid.')
-            raise RuntimeError('Dwell time not valid.')
+            self.parFrame.main.dispMsg(f'Sequence {self.name}: "Dwell time" not valid.')
+            raise RuntimeError(f'Sequence {self.name}: "Dwell time" not valid.')
         sw = 1/(dw*1e-3)
         self.sw.setText(str(sw))
         self.dw.setText(str(1e3/sw))
-        points = np.floor(safeEval(self.np.text()))
+        try:
+            points = int(np.floor(safeEval(self.np.text())))
+        except Exception:
+            self.parFrame.main.dispMsg(f'Sequence {self.name}: "# of points" not valid.')
+            raise RuntimeError(f'Sequence {self.name}: "# of points" not valid.')
         self.time.setText('{:.6g}'.format(points / (sw*1000)))
         
     def npChanged(self):
-        points = np.floor(safeEval(self.np.text()))
-        self.np.setText(str(int(points)))
-        sw = safeEval(self.sw.text())
+        try:
+            points = int(np.floor(safeEval(self.np.text())))
+        except Exception:
+            self.parFrame.main.dispMsg(f'Sequence {self.name}: "# of points" not valid.')
+            raise RuntimeError(f'Sequence {self.name}: "# of points" not valid.')
+
+        self.np.setText(str(points))
+        try:
+            sw = float(self.sw.text())
+        except Exception:
+            self.parFrame.main.dispMsg(f'Sequence {self.name}: "Spectral Width" not valid.')
+            raise RuntimeError(f'Sequence {self.name}: "Spectral Width" not valid.')
         self.time.setText('{:.6g}'.format(points / (sw*1000)))
         
     def returnValues(self):
@@ -375,7 +395,7 @@ class AcqWidget(ParameterWidget):
             self.pulseStep['time'] = float(self.time.text())
             self.pulseStep['amp'] = int(self.np.text())
         except Exception:
-            return None, None, None
+            return None, None, f'Sequence {self.name}: invalid input.'
         # self.pulseStep['offset'] = float(self.offset.text())
         return None, self.pulseStep, None
     
