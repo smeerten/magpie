@@ -134,7 +134,9 @@ class MainProgram(QtWidgets.QMainWindow):
         if self.arrayLen is None:
             self.arrayLen = 1
         nuclei, field, offset, gain, self.numScans = self.spectrometerFrame.getSettings()
-        
+        if None in [offset, gain]:
+            self.stop()
+            return          
         self.simulator.setSettings(field, nuclei, offset, gain)
         self.simulator.setPulseSeq(parameters)
         self.simulator.reset()
@@ -226,7 +228,7 @@ class ParameterFrame(QtWidgets.QTabWidget):
         arrayLens = set()
         pars = []
         for wid in self.parWidgets:
-            arrayLen, par = wid.returnValues()
+            arrayLen, par, message = wid.returnValues()
             if par is None:
                 self.main.dispMsg('Error on reading parameters.')
                 return None, None
@@ -254,7 +256,7 @@ class ParameterWidget(QtWidgets.QWidget):
         self.grid.setColumnStretch(10, 1)
 
     def returnValues(self):
-        return None, self.pulseStep
+        return None, self.pulseStep, None
 
 class DelayWidget(ParameterWidget):
     def __init__(self, parent, pulseStep):
@@ -266,13 +268,13 @@ class DelayWidget(ParameterWidget):
     def returnValues(self):
         timeVal = safeEval(self.time.text())
         if timeVal is None:
-            return None, None
+            return None, None, None
         if isinstance(timeVal, list):
             arrayLen = len(timeVal)
         else:
             arrayLen = None
         self.pulseStep['time'] = timeVal
-        return arrayLen, self.pulseStep
+        return arrayLen, self.pulseStep, None
 
 class PulseWidget(ParameterWidget):
     def __init__(self, parent, pulseStep):
@@ -289,7 +291,7 @@ class PulseWidget(ParameterWidget):
         timeVal = safeEval(self.time.text())
         ampVal = safeEval(self.amplitude.text())
         if timeVal is None or ampVal is None:
-            return None, None
+            return None, None, None
         
         if isinstance(timeVal, (int, float)):
             self.pulseStep['time'] = 1e-6 * timeVal
@@ -306,10 +308,10 @@ class PulseWidget(ParameterWidget):
             arrayLen2 = len(self.pulseStep['amp'])
         lenSet = set([arrayLen1, arrayLen2])
         if len(lenSet) == 1:
-            return list(lenSet)[0], self.pulseStep
+            return list(lenSet)[0], self.pulseStep, None
         lenSet = lenSet - set([None])
         if len(lenSet) == 1:
-            return list(lenSet)[0], self.pulseStep
+            return list(lenSet)[0], self.pulseStep, None
         raise RuntimeError('Differing array lengths not supported')
     
 
@@ -373,9 +375,9 @@ class AcqWidget(ParameterWidget):
             self.pulseStep['time'] = float(self.time.text())
             self.pulseStep['amp'] = int(self.np.text())
         except Exception:
-            return None, None
+            return None, None, None
         # self.pulseStep['offset'] = float(self.offset.text())
-        return None, self.pulseStep
+        return None, self.pulseStep, None
     
 class PlotFrame(QtWidgets.QTabWidget):
     
@@ -846,8 +848,16 @@ class SpectrometerFrame(QtWidgets.QFrame):
     def getSettings(self):
         nuclei = self.detectDrop.currentText()
         field = self.b0List[self.b0Drop.currentIndex()]
-        offset = safeEval(self.offsetInput.text()) * 1000.0
+        offset = safeEval(self.offsetInput.text())
         gain = safeEval(self.gainInput.text())
+        if offset is None :
+            self.main.dispMsg('Error on reading spectrometer offset setting.')
+            return None, None, None, None, None
+        if gain is None:
+            self.main.dispMsg('Error on reading spectrometer gain setting.')
+            return None, None, None, None, None
+        
+        offset *= 1000
         nScans = self.scanBox.value()
         return nuclei, field, offset, gain, nScans
         
