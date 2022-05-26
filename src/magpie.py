@@ -415,7 +415,6 @@ class PlotFrame(QtWidgets.QTabWidget):
         self.sequenceFrame.drawPulseSeq(*args)
 
     def plotData(self, time, FIDarray):
-        parameters = self.main.paramFrame.getParameters()
         offset = self.main.simulator.settings['offset']
         ppmHz = self.main.simulator.settings['B0'] * helpFie.getGamma(self.main.simulator.settings['observe']) # Amount of Hz per ppm, e.g. mainFreq/1e6     
         
@@ -425,7 +424,7 @@ class PlotFrame(QtWidgets.QTabWidget):
         freqppm = freq/ppmHz + offset/ppmHz
         spec = np.fft.fftshift(np.fft.fft(FIDarray, axis=1), axes=1)
         self.fidFrame.plot(time, np.real(FIDarray).T)
-        self.specFrame.plot(freqppm,freq, np.real(spec).T)
+        self.specFrame.plot(freqppm,offset,ppmHz, np.real(spec).T)
         
 class AbstractPlotFrame(QtWidgets.QWidget):
     MIRRORX = False
@@ -762,18 +761,26 @@ class FidPlotFrame(AbstractPlotFrame):
         self.yminlim = np.min(ydata)
         self.plotReset()
         self.canvas.draw()
+        
 
 
 class SpecPlotFrame(AbstractPlotFrame):
     MIRRORX = True
+    
+    def __init__(self, parent):
+        super(SpecPlotFrame, self).__init__(parent)
+        self.offset = 0
+        self.ppmHz = 1
 
-    def plot(self, xdata, xdata2, ydata):
+    def plot(self, xdata, offset, ppmHz, ydata):
         self.xdata = xdata
         self.ydata = ydata
+        self.offset = offset
+        self.ppmHz = ppmHz
         self.ax.plot(xdata, ydata)
         self.ax2 = self.ax.twiny()
         self.ax.set_xlim(np.max(xdata), np.min(xdata))
-        self.ax2.set_xlim([np.max(xdata2)/1000, np.min(xdata2)/1000])
+        # self.ax2.set_xlim([1,-1])
         self.ax.set_xlabel('Shift [ppm]')
         self.ax.set_ylabel('Intensity [arb. u.]')
         self.ax2.set_xlabel('Frequency [kHz]')
@@ -782,7 +789,29 @@ class SpecPlotFrame(AbstractPlotFrame):
         self.ymaxlim = np.max(ydata)
         self.yminlim = np.min(ydata)
         self.plotReset()
+        self.updatekHzAxis()
         self.canvas.draw()
+
+    def pan(self,event):
+        AbstractPlotFrame.pan(self,event)
+        self.updatekHzAxis()
+        
+    def buttonRelease(self,event):
+        AbstractPlotFrame.buttonRelease(self,event)
+        self.updatekHzAxis()
+        
+    def scroll(self,event):
+        AbstractPlotFrame.scroll(self,event)
+        self.updatekHzAxis()
+        
+    def plotReset(self,*args):
+        AbstractPlotFrame.plotReset(self,*args)
+        self.updatekHzAxis()
+        
+    def updatekHzAxis(self):
+        maxval = (self.xmaxlim * self.ppmHz - self.offset) / 1000
+        minval = (self.xminlim * self.ppmHz - self.offset) / 1000
+        self.ax2.set_xlim([maxval, minval])
 
 
 class SpectrometerFrame(QtWidgets.QFrame):
