@@ -264,7 +264,13 @@ class DelayWidget(ParameterWidget):
         super(DelayWidget, self).__init__(parent, pulseStep, name)
         self.grid.addWidget(QtWidgets.QLabel('Duration [s]:'), 0, 0)
         self.time = QtWidgets.QLineEdit(str(self.pulseStep['time']))
+        self.time.editingFinished.connect(self.checkVals)
         self.grid.addWidget(self.time, 0, 1)
+
+    def checkVals(self):
+        timeVal = safeEval(self.time.text())
+        if timeVal is not None:
+            self.time.setText(str(timeVal))
 
     def returnValues(self):
         timeVal = safeEval(self.time.text())
@@ -282,11 +288,21 @@ class PulseWidget(ParameterWidget):
         super(PulseWidget, self).__init__(parent, pulseStep, name)
         self.grid.addWidget(QtWidgets.QLabel('Duration [µs]:'), 0, 0)
         self.time = QtWidgets.QLineEdit(str(1e6*self.pulseStep['time']))
+        self.time.editingFinished.connect(self.checkVals)
         self.grid.addWidget(self.time, 0, 1)
 
         self.grid.addWidget(QtWidgets.QLabel('Amplitude [kHz]:'), 0, 2)
         self.amplitude = QtWidgets.QLineEdit(str(1e-3*self.pulseStep['amp']))
+        self.amplitude.editingFinished.connect(self.checkVals)
         self.grid.addWidget(self.amplitude, 0, 3)
+
+    def checkVals(self):
+        timeVal = safeEval(self.time.text())
+        if timeVal is not None:
+            self.time.setText(str(timeVal))
+        ampVal = safeEval(self.amplitude.text())
+        if ampVal is not None:
+            self.amplitude.setText(str(ampVal))
 
     def returnValues(self):
         timeVal = safeEval(self.time.text())
@@ -347,7 +363,7 @@ class AcqWidget(ParameterWidget):
         
     def swChanged(self):
         try:
-            sw = float(self.sw.text())
+            sw = float(safeEval(self.sw.text()))
         except Exception:
             self.parFrame.main.dispMsg(f'Sequence {self.name}: "Spectral Width" not valid.')
             raise RuntimeError(f'Sequence {self.name}: "Spectral Width" not valid.')
