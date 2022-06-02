@@ -1,0 +1,15 @@
+###SAMPLE###
+amount 1000
+###MOLECULE###
+amount 0.00001 
+T1 0.1
+T2 0.5
+T2prime 10
+spin 1H 1.226 3
+spin 1H 3.692 2
+###MOLECULE###
+amount 0.99999
+T1 3
+T2 1
+T2prime 10
+spin 1H 2.605 1
