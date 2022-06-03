@@ -874,10 +874,12 @@ class SpectrometerFrame(QtWidgets.QFrame):
 
         grid.addWidget(QtWidgets.QLabel('Offset [kHz]:'),8,0)
         self.offsetInput = QtWidgets.QLineEdit('0.0')
+        self.offsetInput.editingFinished.connect(self.checkOffset)
         grid.addWidget(self.offsetInput,8,1)
 
         grid.addWidget(QtWidgets.QLabel('Gain:'),9,0)
         self.gainInput = QtWidgets.QLineEdit('1.0')
+        self.gainInput.editingFinished.connect(self.checkGain)
         grid.addWidget(self.gainInput,9,1)
         
         grid.addWidget(QtWidgets.QLabel('# Scans:'),10,0)
@@ -901,6 +903,20 @@ class SpectrometerFrame(QtWidgets.QFrame):
         grid.setAlignment(QtCore.Qt.AlignLeft)
         self.grid = grid
         self.upd()
+
+    def checkOffset(self):
+        offset = safeEval(self.offsetInput.text())
+        if offset is None :
+            self.main.dispMsg('Error on reading spectrometer offset setting.')
+        else:
+            self.offsetInput.setText(str(offset))
+
+    def checkGain(self):
+        gain = safeEval(self.gainInput.text())
+        if gain is None :
+            self.main.dispMsg('Error on reading spectrometer gain setting.')
+        else:
+            self.gainInput.setText(str(gain))
 
     def setRunning(self, running):
         if running:
