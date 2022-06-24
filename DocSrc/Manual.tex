@@ -1,0 +1,145 @@
+% Copyright 2021-2022 Bas van Meerten and Wouter Franssen
+%
+%This file is part of magpie.
+%
+%magpie is free software: you can redistribute it and/or modify
+%it under the terms of the GNU General Public License as published by
+%the Free Software Foundation, either version 3 of the License, or
+%(at your option) any later version.
+%
+%magpie is distributed in the hope that it will be useful,
+%but WITHOUT ANY WARRANTY; without even the implied warranty of
+%MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%GNU General Public License for more details.
+%
+%You should have received a copy of the GNU General Public License
+%along with magpie. If not, see <http://www.gnu.org/licenses/>.
+
+\documentclass[11pt,a4paper]{article}
+\include{DeStijl}
+
+\usepackage[bitstream-charter]{mathdesign}
+\usepackage[T1]{fontenc}
+\usepackage[protrusion=true,expansion,tracking=true]{microtype}
+\pgfplotsset{compat=1.7,/pgf/number format/1000 sep={}, axis lines*=left,axis line style={gray},every outer x axis line/.append style={-stealth'},every outer y axis line/.append style={-stealth'},tick label style={font=\small},label style={font=\small},legend style={font=\footnotesize}}
+\usepackage{colortbl}
+\usepackage{listings}
+
+
+%Set section font
+\usepackage{sectsty}
+\allsectionsfont{\color{black!70}\fontfamily{SourceSansPro-LF}\selectfont}
+%--------------------
+
+
+%Set toc fonts
+\usepackage{tocloft}
+%\renewcommand\cftchapfont{\fontfamily{SourceSansPro-LF}\bfseries}
+\renewcommand\cfttoctitlefont{\color{black!70}\Huge\fontfamily{SourceSansPro-LF}\bfseries}
+\renewcommand\cftsecfont{\fontfamily{SourceSansPro-LF}\selectfont}
+%\renewcommand\cftchappagefont{\fontfamily{SourceSansPro-LF}\bfseries}
+\renewcommand\cftsecpagefont{\fontfamily{SourceSansPro-LF}\selectfont}
+\renewcommand\cftsubsecfont{\fontfamily{SourceSansPro-LF}\selectfont}
+\renewcommand\cftsubsecpagefont{\fontfamily{SourceSansPro-LF}\selectfont}
+%--------------------
+
+%Define header/foot
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhead[LE,RO]{\fontfamily{SourceSansPro-LF}\selectfont \thepage}
+\fancyhead[LO,RE]{\fontfamily{SourceSansPro-LF}\selectfont \leftmark}
+\fancyfoot[C]{}
+%--------------------
+
+%remove page number from first chapter page
+\makeatletter
+\let\ps@plain\ps@empty
+\makeatother
+%----------------------
+\usepackage{blindtext, color}
+\definecolor{gray75}{gray}{0.75}
+\newcommand{\hsp}{\hspace{20pt}}
+
+
+
+\usepackage[hidelinks,colorlinks,allcolors=blue, pdftitle={The Magpie manual},pdfauthor={W.M.J.\ Franssen}]{hyperref}
+
+\interfootnotelinepenalty=10000 %prevents splitting of footnote over multiple pages
+\linespread{1.2}
+
+%\usepgfplotslibrary{external}%creates all external tikz images that are included.
+%\tikzexternalize[shell escape=-enable-write18]%activate externalization
+%\tikzsetexternalprefix{GeneratedFigures/}
+%\tikzset{external/force remake} %Enable forced remake
+
+
+
+\begin{document}
+%\newgeometry{left=72pt,right=72pt,top=95pt,bottom=95pt,footnotesep=0.5cm}
+\input{Title.tex}
+
+\thispagestyle{empty}
+\newpage
+\mbox{}
+
+%\restoregeometry
+
+\pagenumbering{roman}
+%\pagestyle{empty}
+\renewcommand\cfttoctitlefont{\color{black}\Huge\fontfamily{SourceSansPro-LF}\bfseries}
+\microtypesetup{protrusion=false} % disables protrusion locally in the document
+\setcounter{tocdepth}{2}
+\tableofcontents % prints Table of Contents
+\microtypesetup{protrusion=true} % enables protrusion
+\addtocontents{toc}{\protect\thispagestyle{empty}}
+%\pagestyle{plain}
+
+\renewcommand\cfttoctitlefont{\color{black!70}\Huge\fontfamily{SourceSansPro-LF}\bfseries}
+
+
+\pagenumbering{arabic}
+\section{Introduction}
+Magpie (waar staat het voor?) is a program that simualtes an NMR spectrometer environment. It can load sample and pulse sequences, and simulate the outcome of NMR measurements. The goal of the program is to be used in teaching, allowing students a first introduction to practical NMR.
+
+\section{Sample definition}
+Sample files for Magpie need to be in a specific definition. They need to be text files with \texttt{.txt} extension.
+
+
+%###SAMPLE###
+%amount 1 #(optional)
+%###MOLECULE###
+%amount 1 
+%T1 1 (optional)
+%T2 1 (optional)
+%T2prime 1 (optional)
+%spin 1H 0 1 _ _ _ # isotope shift multi T1 T2 T2prime
+%spin 1H 0 1
+%spin 1H 0 1 _ 1 _
+%J 1 2 10 #J spin1 spin2 J[hz]
+%Jmatrix [[0,10],[10,0]] # Jmatrix in python format.
+%pair 1H 1 2 100 1 2 _ _ _ _ # isotope shift0 shift1 k amp0 amp1 T1_0 T1_1 T2_0 T2_1 k
+%
+%# Notes
+%Either Jmatrix or J statments are allowed. Not both.
+%Spin statements can lack all the relaxation times, or have a _ instead.
+%If relax time not defined, it needs to use the global molecule time.
+%These are also optional, but if they lack, the individual spin lifetimes need to be all there.
+%
+%GENERAL can alos not be there.
+
+\section{Pulse sequence definition}
+
+\section{Data output}
+
+\section{Simulation background}
+Magpie uses a classical simulator, so no quantum effects are included. J-couplings are therefore included only as their weak coup;ling limit, and no coherence between the J-states exists.
+
+
+
+\section{Contact}
+To contact the \texttt{magpie} team write to \texttt{ssnake@science.ru.nl}.
+
+\bibliographystyle{BibStyle}
+\bibliography{ReferenceManual}
+
+\end{document}
