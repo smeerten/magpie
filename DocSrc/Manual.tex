@@ -104,28 +104,101 @@ Magpie (waar staat het voor?) is a program that simualtes an NMR spectrometer en
 \section{Sample definition}
 Sample files for Magpie need to be in a specific definition. They need to be text files with \texttt{.txt} extension.
 
+The file should start with a header:
+\begin{verbatim}
+###SAMPLE###
+\end{verbatim}
+Below this, on optional statement regarding the sample amount (concentration) can be made:
 
-%###SAMPLE###
-%amount 1 #(optional)
-%###MOLECULE###
-%amount 1 
-%T1 1 (optional)
-%T2 1 (optional)
-%T2prime 1 (optional)
-%spin 1H 0 1 _ _ _ # isotope shift multi T1 T2 T2prime
-%spin 1H 0 1
-%spin 1H 0 1 _ 1 _
-%J 1 2 10 #J spin1 spin2 J[hz]
-%Jmatrix [[0,10],[10,0]] # Jmatrix in python format.
-%pair 1H 1 2 100 1 2 _ _ _ _ # isotope shift0 shift1 k amp0 amp1 T1_0 T1_1 T2_0 T2_1 k
-%
-%# Notes
-%Either Jmatrix or J statments are allowed. Not both.
-%Spin statements can lack all the relaxation times, or have a _ instead.
-%If relax time not defined, it needs to use the global molecule time.
-%These are also optional, but if they lack, the individual spin lifetimes need to be all there.
-%
-%GENERAL can alos not be there.
+\begin{verbatim}
+amount 1 
+\end{verbatim}
+In this case, the scaling is set to \texttt{1}, so it has no effect.
+
+After this, a molecule can be defined. The sample file can hold multiple molecule definitions. Within this block, the spins are set, as well as the overall relaxation times and the J-couplings.
+
+The statements are:
+
+\begin{center}
+\begin{tabular}{lp{5cm}p{6cm}}
+\toprule
+\textbf{Statement} & \textbf{Input} & \textbf{Description} \\
+\midrule
+\rowcolor{gray!30!white}
+\texttt{amount} & amount & molecule amount\\
+\texttt{T1} & T1 & Overall T1, in seconds (optional)\\
+\rowcolor{gray!30!white}
+\texttt{T2} & T2 & Overall T2, in seconds (optional)\\
+\texttt{T2prime} & T2prime & Overall T2prime, in seconds (optional)\\
+\rowcolor{gray!30!white}
+\texttt{spin} & isotope shift multiplicity & For example: \texttt{1H 1.2 3}\\
+\texttt{spin} & isotope shift multiplicity T1 T2 T2prime & Spin definition including relation times. These are used in favour of the overall relaxation times, if set. Values can be set empty by an underscore (\_) \\
+\rowcolor{gray!30!white}
+\texttt{J} & spin1 spin2 strength & Set J-coupling in Hz between two spin indexes. Number order as the spins are defined. For example: \texttt{J 1 2 9.6}\\
+\texttt{Jmatrix} & matrix & Set J-coupling in Hz between all spins in matrix format. Example for two spins: \texttt{[[0,10],[10,0]]}, setting 10 Hz coupling. Size needs to be n\_spins x n\_spins. When used the, regular \texttt{J} statement cannot be used.\\
+\rowcolor{gray!30!white}
+pair & isotope shift1 shift2 k amp1 amp2 T1\_1 T1\_2 T2\_1 T2\_2 &  Sets a spin-pair with exchange between them. \texttt{amp} sets the multiplicity. Individual T1 and T2 times can be set, or set to empty by an underscore (\_). No J-couplings can be set to these spins.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Either \texttt{Jmatrix} or \texttt{J} statements are allowed. Not both.
+Spin statements can lack all the relaxation times, or have a \_ instead.
+If a relax time not defined for a spin, it needs to use the global molecule relaxation time.
+These are also optional, but if they lack, the individual spin lifetimes need to be all there.
+
+An example definition could be the following sample:
+\begin{verbatim}
+###SAMPLE###
+amount 1
+###MOLECULE###
+amount 0.1
+T1 5
+T2 0.5
+T2prime 10
+spin 1H 1.2 3
+spin 1H 3.6 2
+J 1 2 7
+\end{verbatim}
+Here we set a two spin system, with shifts 1.2 and 3.6 ppm, multiplicities 3 and 2. There is a 7 Hz J-coupling between the spins. All nuclei have the same relaxation times, set at 5, 0.5 and 10 s for T1, T2 and T2prime respectively. The overall intensity scaling is set at 1, and the molecule itself has scaling 0.1.
+
+A more complicated sample could be ethanol:
+\begin{verbatim}
+###SAMPLE###
+amount 1
+###MOLECULE###
+amount 0.98 
+T1 5
+T2 0.5
+T2prime 10
+spin 1H 1.226 3
+spin 1H 3.692 2
+spin 1H 2.605 1 _ 0.01 0.1
+J 1 2 7
+###MOLECULE###
+amount 0.01 
+T1 5
+T2 1
+T2prime 10
+spin 1H 1.224 3
+spin 1H 3.692 2
+spin 1H 2.605 1 _ 0.01 0.1
+spin 13C 18.1 1 _ _ 7
+J 1 2 7
+J 1 4 125
+###MOLECULE###
+amount 0.01 
+T1 7
+T2 1
+T2prime 10
+spin 1H 1.226 3
+spin 1H 3.692 2
+spin 1H 2.605 1 _ 0.01 0.1
+spin 13C 57.8 1 _ _ 7
+J 1 2 7
+J 2 4 125
+\end{verbatim}
+Here we set three molecules: with no 13C nucleus, and both options with a single 13C nucleus (the 13C-13C variant is too low in intensity to care about). The amount of the molecules is set to follow the natural abundance. For the OH peak (at 2.6 ppm), a separate set of relaxation times is set, as to have a shorter T2 and T2prime, to include the fact that this signal is usually exchanging causing line broadening. J-couplings are ste between the 1H nuclei of the CH$_3$ and CH$_2$ groups, as well as between the 13C nuclei and their directly bonded 1H nuclei. 
 
 \section{Pulse sequence definition}
 
