@@ -28,11 +28,12 @@ from safeEval import safeEval
 import helperFunctions as helpFie
 
 import matplotlib
+import webbrowser
 # First import matplotlib and Qt
 matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-
+import widgetClasses as wc
 import loadIsotopes
 import simulator
 import sample
@@ -56,6 +57,8 @@ class MainProgram(QtWidgets.QMainWindow):
         self.setCentralWidget(self.main_widget)
         self.statusBar = QtWidgets.QStatusBar(self)
         self.setStatusBar(self.statusBar)
+        self.initMenu()
+        
         self.simulator = simulator.Simulator()
         self.pulseSeqName = None
         self.sampleName = None
@@ -76,6 +79,21 @@ class MainProgram(QtWidgets.QMainWindow):
         self.mainFrame.addWidget(self.exportFrame,2,0,1,2)
         self.resize(800, 700)
         self.show()
+        
+        
+    def initMenu(self):
+        IconDirectory = os.path.dirname(os.path.realpath(__file__)) + os.path.sep + 'Icons' + os.path.sep
+        self.menubar = self.menuBar()
+        
+        self.helpmenu = QtWidgets.QMenu('Help', self)
+        self.menubar.addMenu(self.helpmenu)
+        self.aboutAction = self.helpmenu.addAction('&About', lambda: aboutWindow(self))
+        self.githubAct = self.helpmenu.addAction("GitHub Page", lambda: webbrowser.open('https://github.com/smeerten/magpie/'))
+        self.githubAct.setToolTip('Magpie GitHub Page')
+        self.refmanAct = self.helpmenu.addAction("Manual", openRefMan)
+        self.refmanAct.setToolTip('Open the Manual')
+        
+
         
     def dispMsg(self, msg, color='red'):
         if color == 'red':
@@ -176,7 +194,16 @@ class MainProgram(QtWidgets.QMainWindow):
     def exportFID(self, filePath):
         self.simulator.saveMatlabFile(filePath)
         
-        
+def openRefMan():
+    file = os.path.dirname(os.path.realpath(__file__))  + os.path.sep + '..' + os.path.sep + 'Manual.pdf'
+    if sys.platform.startswith('linux'):
+        os.system("xdg-open " + '"' + file + '"')
+    elif sys.platform.startswith('darwin'):
+        os.system("open " + '"' + file + '"')
+    elif sys.platform.startswith('win'):
+        os.startfile(file)
+            
+            
 class ExportFrame(QtWidgets.QWidget):
     def __init__(self, main):
         super(ExportFrame, self).__init__(main)
@@ -952,6 +979,47 @@ class SpectrometerFrame(QtWidgets.QFrame):
         else:
             self.sequenceLabel.setText('<i>' + self.main.pulseSeqName + '</i>')
 
+
+
+class aboutWindow(wc.ToolWindow):
+
+    NAME = "About"
+    RESIZABLE = True
+    MENUDISABLE = False
+
+    def __init__(self, parent):
+        super(aboutWindow, self).__init__(parent)
+        self.cancelButton.hide()
+        # self.logo = QtWidgets.QLabel(self)
+        # self.logo.setPixmap(QtGui.QPixmap(os.path.dirname(os.path.realpath(__file__)) + "/Icons/Splash.png"))
+        self.tabs = QtWidgets.QTabWidget(self)
+        self.text = QtWidgets.QTextBrowser(self)
+        self.text.setOpenExternalLinks(True)
+        self.license = QtWidgets.QTextBrowser(self)
+        self.license.setOpenExternalLinks(True)
+        licenseText = ''
+        with open(os.path.dirname(os.path.realpath(__file__)) + os.path.sep + 'licenseHtml.txt') as f:
+            licenseText = f.read()
+        self.license.setHtml(licenseText)
+        pythonVersion = sys.version
+        pythonVersion = pythonVersion[:pythonVersion.index(' ')]
+        self.text.setText('<p><b>Magpie ' + VERSION + '</b></p>' +
+                          '<p>Copyright (&copy;) 2021-2022 Bas van Meerten & Wouter Franssen.</p>'+
+                          '<b>Library versions</b>:<br>Python ' + pythonVersion +
+                          '<br>PyQt ' + QtCore.PYQT_VERSION_STR +
+                          '<br>Qt ' + QtCore.QT_VERSION_STR)
+        self.thanks = QtWidgets.QTextEdit(self)
+        self.thanks.setReadOnly(True)
+        self.thanks.setHtml('<p></p>')
+        self.tabs.addTab(self.text, 'Version')
+        self.tabs.addTab(self.thanks, 'Thanks')
+        self.tabs.addTab(self.license, 'License')
+        # self.grid.addWidget(self.logo, 0, 0, 1, 3, QtCore.Qt.AlignHCenter)
+        self.grid.addWidget(self.tabs, 1, 0, 1, 3)
+        self.resize(550, 700)
+
+    def closeEvent(self, *args):
+        self.deleteLater()
         
 if __name__ == '__main__':
 
