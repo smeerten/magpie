@@ -1008,11 +1008,11 @@ class aboutWindow(wc.ToolWindow):
                           '<b>Library versions</b>:<br>Python ' + pythonVersion +
                           '<br>PyQt ' + QtCore.PYQT_VERSION_STR +
                           '<br>Qt ' + QtCore.QT_VERSION_STR)
-        self.thanks = QtWidgets.QTextEdit(self)
-        self.thanks.setReadOnly(True)
-        self.thanks.setHtml('<p></p>')
+        #self.thanks = QtWidgets.QTextEdit(self)
+        #self.thanks.setReadOnly(True)
+        #self.thanks.setHtml('<p></p>')
         self.tabs.addTab(self.text, 'Version')
-        self.tabs.addTab(self.thanks, 'Thanks')
+        #self.tabs.addTab(self.thanks, 'Thanks')
         self.tabs.addTab(self.license, 'License')
         # self.grid.addWidget(self.logo, 0, 0, 1, 3, QtCore.Qt.AlignHCenter)
         self.grid.addWidget(self.tabs, 1, 0, 1, 3)
