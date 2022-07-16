@@ -1,0 +1,1 @@
+"C:\Users\Emulator\AppData\Local\Programs\Python\Python38\Scripts\pyinstaller.exe" -y magpie.spec

@@ -1,0 +1,18 @@
+This describes how to compile Magpie on windows 7, and make an installer.
+
+==================
+   Requirements
+==================
+Python with all relevant libraries
+pyinstaller (can be installed via pip)
+NSIS installer maker (https://nsis.sourceforge.io/)
+
+==================
+      Steps
+==================
+- Copy the files in this directory to the same level as the Magpie folder
+- In buildMagpie.bat: change the path of the pyinstaller.exe to the path on your machine
+- In magpie.spec: change the basePath to point to the Magpie src directory
+- In magpie.spec: change the entry in 'pathex' to the scipy extra dll's
+- Run 'buildMagpie.bat' and check if this works (takes some time). This creates the compile, and makes the installer. In the 'dist' folder, the compile is placed. Check if this works, before looking at the installer.
+
