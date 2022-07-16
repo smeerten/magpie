@@ -101,7 +101,65 @@
 \section{Introduction}
 Magpie (waar staat het voor?) is a program that simualtes an NMR spectrometer environment. It can load sample and pulse sequences, and simulate the outcome of NMR measurements. The goal of the program is to be used in teaching, allowing students a first introduction to practical NMR.
 
-\section{Sample definition}
+\section{Interface}
+
+The Magpie interface looks like this:
+\begin{center}
+\includegraphics[width=0.7\linewidth]{images/Full_interface.png}
+\end{center}
+In the sections below, the individual elements are explained.
+
+\subsection{Spectrometer settings}
+
+
+\begin{center}
+\includegraphics[width=0.3\linewidth]{images/Spec_settings.png}
+\end{center}
+In the left of the Magpie screen, the spectrometer settings can be put in. These are all settings that are not specific to a pulse sequence. Also, the buttons to load a sample and a pulse sequence are contained here. Below is a list of the settings and their description.
+
+\begin{itemize}
+\item \textbf{Load sample:} Opens a file dialog to brows for a sample file. More info can be found in \autoref{sec:sample}. The file should have extension \texttt{.txt}.
+\item \textbf{Load pulse sequence:} Opens a file dialog to brows for a pulse sequence file file. More info can be found in \autoref{sec:pulseseq}. The file should have extension \texttt{.csv}.
+\item \textbf{Detect:} The nucleus to detect. In principle, any nucleus can be detected. For the moment, we limit the selection to $^1$H and $^{13}$C though. This is a design choice to not overflow the user with obscure nuclei.
+\item \textbf{Decouple:} The nucleus that is decoupled during a decoupling pulse sequence element. Only active if the pulse sequence has a decouple element.
+\item \textbf{B$_\mathbf{0}$:} The main magnetic field strength in Tesla. Magpie supports any magnetic field strength. For now, we decide on using a dropdown box with only common fields. This is the teach the user that in reality the magnetic field cannot easily be changed to whatever we want.
+\item \textbf{Offset [kHz]:} The transmitter offset in kHz. This can be used to fine-tune the center frequency of the experiment. It defines the center of the spectrum, as well as the frequecy on which any pulses are given.
+\item \textbf{Gain:} The gain factor of the receiver. All signals are multiplied by this value before detection. Note that, contrary to most real-life spectrometers, Magpie uses a linear scale, and does not work in dB.
+\item \textbf{\# Scans:} The number of individual scans that need to be recorded. All scans are automatically summed.
+\end{itemize}
+
+\subsection{Pulse sequence settings}\label{sec:seq_settings}
+
+\begin{center}
+\includegraphics[width=0.9\linewidth]{images/Sequence_settings.png}
+\end{center}
+In the bottom of the Magpie interface, the pulse sequence settings are defined. Each tab represent a separate element of the pulse sequence. The names of the tabs are equal to the names of the elements, as defined in the pulse sequence file. The pulse sequence diagram (in the plot window) always highlights the element which settings tab is currently showing. More info on pulse sequences, and the relevant settings per element can be found in \autoref{sec:pulseseq}.
+
+\subsection{Plot windows}
+The plot window contains three tabs: Pulse sequence, FID, and Spectrum. These are explained below.
+\subsubsection{Pulse sequence}
+\begin{center}
+\includegraphics[width=0.9\linewidth]{images/Plot_sequence.png}
+\end{center}
+The pulse sequence tab displays a diagram of the current pulse sequence. The current element that is selected is displayed in red. Left-clicking on an element changes the selection. The sequence settings tab (see \autoref{sec:seq_settings}) folows this selection (and vice-versa).
+
+The labels displayed above the sequence elements are those as defined in the pulse sequence file. The tabs in the sequence settings window also have this name.
+
+The elements in the pulse sequence each have a unique pictorial representation. The style of the elements is not updated depending on the pulse sequence settings (e.g.\ a pulse with amplitude 0 is not shown as a much lower rectangle).
+
+
+\subsubsection{FID}
+\begin{center}
+\includegraphics[width=0.9\linewidth]{images/Plot_FID.png}
+\end{center}
+
+\subsubsection{Spectrum}
+\begin{center}
+\includegraphics[width=0.9\linewidth]{images/Plot_Spectrum.png}
+\end{center}
+
+
+\section{Sample definition}\label{sec:sample}
 Sample files for Magpie need to be in a specific definition. They need to be text files with \texttt{.txt} extension.
 
 The file should start with a header:
@@ -200,7 +258,7 @@ J 2 4 125
 \end{verbatim}
 Here we set three molecules: with no 13C nucleus, and both options with a single 13C nucleus (the 13C-13C variant is too low in intensity to care about). The amount of the molecules is set to follow the natural abundance. For the OH peak (at 2.6 ppm), a separate set of relaxation times is set, as to have a shorter T2 and T2prime, to include the fact that this signal is usually exchanging causing line broadening. J-couplings are ste between the 1H nuclei of the CH$_3$ and CH$_2$ groups, as well as between the 13C nuclei and their directly bonded 1H nuclei. 
 
-\section{Pulse sequence definition}
+\section{Pulse sequence definition}\label{sec:pulseseq}
 
 \section{Data output}
 
