@@ -101,6 +101,51 @@
 \section{Introduction}
 Magpie (waar staat het voor?) is a program that simualtes an NMR spectrometer environment. It can load sample and pulse sequences, and simulate the outcome of NMR measurements. The goal of the program is to be used in teaching, allowing students a first introduction to practical NMR.
 
+
+\section{Running Magpie}
+\subsection{Python and library versions}
+Magpie should run on python
+versions starting from 3.8.
+For the library version, the following are needed:
+\begin{itemize}
+  \item  \texttt{numpy} $>=$ 1.23.1
+  \item  \texttt{matplotlib} $>=$ 3.5.2
+  \item  \texttt{scipy} $>=$ 1.8.1
+  \item \texttt{PyQt5} $>=$ 5.15.7
+\end{itemize}
+Older library and python version might also work, but have not been tested.
+
+\subsection{Installing}
+\subsubsection{Linux}
+On Linux, Magpie can be most efficiently run using the python libraries that are in the
+repositories. For Ubuntu, these can be installed by running:
+\begin{verbatim}
+sudo apt install python3 python3-numpy python3-matplotlib python3-scipy
+python3-pyqt5
+\end{verbatim}
+Navigating to the \texttt{magpie/src} directory in a terminal, Magpie can then be run
+by executing \texttt{python3 magpie.py}.
+
+\subsubsection{Windows}
+On Windows, the relevant python libraries can be installed by installing \texttt{anaconda}:
+\url{https://www.anaconda.com/download/}. If you do not have another python version installed
+already, make sure to add anaconda to the \texttt{path} during the install. In this case, Magpie can
+be run by executing the \texttt{WindowsRun.bat} file in the \texttt{magpie/src} directory. %Destktop
+%and start menu shortcuts to this file can be created by executing the \texttt{WindowsInstall.vbs}
+%file.
+
+If you already have other version of python installed, adding anaconda to the \texttt{path} might
+create issues. Do not do this in this case. When not added to the path, the \texttt{WindowsRun.bat}
+should be edited in such a way that \texttt{pythonw} is replaced with the path to your
+\texttt{pythonw.exe} executable in the anaconda install directory.
+
+\subsubsection{OS X}
+On OS X, the relevant python libraries can be installed by installing \texttt{anaconda}:
+\url{https://www.anaconda.com/download/}. Navigating to the \texttt{magpie/src} directory in a terminal, Magpie can then be run
+by \texttt{anacondapython magpie.py}, with \texttt{anacondapython} replaced by the path to your
+anaconda python executable.
+
+
 \section{Interface}
 
 The Magpie interface looks like this:
@@ -148,16 +193,34 @@ The labels displayed above the sequence elements are those as defined in the pul
 The elements in the pulse sequence each have a unique pictorial representation. The style of the elements is not updated depending on the pulse sequence settings (e.g.\ a pulse with amplitude 0 is not shown as a much lower rectangle).
 
 
-\subsubsection{FID}
+\subsubsection{FID}\label{sec:FID}
 \begin{center}
 \includegraphics[width=0.9\linewidth]{images/Plot_FID.png}
 \end{center}
+The FID tab shows the FID (time signal) of the simulated data. If there is no data, no plot is shown. The y-axis has the signal intensity. Although it is in arbitrary units, the maximum value is 1. Any signals high than that will be rounded to 1. For negative intensity the limit is $-1$. These situations relate the `receiver overflow' in real spectrometers, that happens when signals are to strong to properly digitize.
+
+The plot supports the following mouse-based zoom-controls:
+
+\begin{itemize}
+\item Dragging a box while holding the left mouse button creates a zoombox, and will zoom to that region.
+\item Dragging while holding the right mouse button drags (i.e.\ pans) the spectrum. Doing this while holding the Control button pans only the x-axis, holding Shift pans only the y-axis.
+\item Double clicking with the right mouse button resets the view to fit the whole plot (both x and y).
+\item Scrolling with the mouse wheel zooms the y-axis. Doing this while also holding the right mouse button zooms the x-axis. By holding Control the zooming will use a larger step size. 
+\end{itemize}
+
 
 \subsubsection{Spectrum}
 \begin{center}
 \includegraphics[width=0.9\linewidth]{images/Plot_Spectrum.png}
 \end{center}
+The Spectrum tab shows the signal after Fourier transformation. Two x-axes are plots:
+\begin{itemize}
+\item Bottom x-axis: Has the axis in ppm. Here, 0 ppm relates to the signal of the ppm reference for the measured nucleus. If the spectrometer offset is changes, the 0 ppm position can shift in the spectrum.
+\item Top x-axis: Has the axis in kHz. For this axis, 0 kHz is always defined in the center of the spectrum. When adjusting the spectrometer offset, this axis can be used to find the desired shift.
+\end{itemize}
 
+
+The spectrum plots has the same zoom controls as the FID plot (see \autoref{sec:FID}).
 
 \section{Sample definition}\label{sec:sample}
 Sample files for Magpie need to be in a specific definition. They need to be text files with \texttt{.txt} extension.
@@ -263,8 +326,7 @@ Here we set three molecules: with no 13C nucleus, and both options with a single
 \section{Data output}
 
 \section{Simulation background}
-Magpie uses a classical simulator, so no quantum effects are included. J-couplings are therefore included only as their weak coup;ling limit, and no coherence between the J-states exists.
-
+Magpie uses a classical simulator, so no quantum effects are included. J-couplings are therefore included only as their weak coupling limit, and no coherence between the J-states exists.
 
 
 \section{Contact}
