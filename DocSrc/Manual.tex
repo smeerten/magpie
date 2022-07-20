@@ -99,7 +99,7 @@
 
 \pagenumbering{arabic}
 \section{Introduction}
-Magpie (waar staat het voor?) is a program that simualtes an NMR spectrometer environment. It can load sample and pulse sequences, and simulate the outcome of NMR measurements. The goal of the program is to be used in teaching, allowing students a first introduction to practical NMR.
+Magpie is a program that simulates an NMR spectrometer environment. It can load sample and pulse sequences, and simulate the outcome of NMR measurements. The goal of the program is to be used in teaching, allowing students a first introduction to practical NMR. The basis for the simulation back-end is the classical description of magnetic resonance based on the Bloch equations including relaxation. This allows already a wide variety of NMR effects to be studied. As no quantum effects are taken into account, coherence transfer experiments and the like are not supported.
 
 
 \section{Running Magpie}
@@ -182,7 +182,7 @@ In the bottom of the Magpie interface, the pulse sequence settings are defined. 
 
 \subsection{Plot windows}
 The plot window contains three tabs: Pulse sequence, FID, and Spectrum. These are explained below.
-\subsubsection{Pulse sequence}
+\subsubsection{Pulse sequence}\label{sec:inter:pulse}
 \begin{center}
 \includegraphics[width=0.9\linewidth]{images/Plot_sequence.png}
 \end{center}
@@ -322,11 +322,78 @@ J 2 4 125
 Here we set three molecules: with no 13C nucleus, and both options with a single 13C nucleus (the 13C-13C variant is too low in intensity to care about). The amount of the molecules is set to follow the natural abundance. For the OH peak (at 2.6 ppm), a separate set of relaxation times is set, as to have a shorter T2 and T2prime, to include the fact that this signal is usually exchanging causing line broadening. J-couplings are ste between the 1H nuclei of the CH$_3$ and CH$_2$ groups, as well as between the 13C nuclei and their directly bonded 1H nuclei. 
 
 \section{Pulse sequence definition}\label{sec:pulseseq}
+Magpie reads pulse sequence in comma separated format (\texttt{.csv}). Each sequence element is on its own row. Default settings for its parameters are given in columns with the correct column name. For each sequence element, magpie only looks for the columns needed for that element. Other columns can be left empty, if a specific sequence element does not need those.
+
+Below, the currently supported sequence elements are listed, along with the required columns.
+
+\begin{center}
+\begin{tabular}{lp{3.5cm}p{7.5cm}}
+\toprule
+Element type & Required columns & Description \\
+\midrule
+\rowcolor{gray!30!white}
+\texttt{delay} & \texttt{time} & Set a delay during which nothing is done.\\
+\texttt{pulse} & \texttt{time}, \texttt{amp}, \texttt{phase} & Defines a pulse with amplitude in kHz and a phase in degrees. Phase can also be a list (e.g.\ [0,90]) to define a phase cycle.\\
+\rowcolor{gray!30!white}
+\texttt{FID} & \texttt{time}, \texttt{amp} & Measure the FID, with \texttt{time} the acquisition time in seconds, and \texttt{amp} the amount of points. The receiver phase is always 0, and cannot be phase cycled.\\
+\texttt{sat} & & Defines a saturation element. Sets all magnetization to 0. Has no further settings.\\
+\rowcolor{gray!30!white}
+\texttt{shapedPulse} & \texttt{time}, \texttt{amp}, \texttt{phase}, \texttt{shapeFile} & Defines a pulse with an amplitude shape. Has the same definitons as the \texttt{pulse} element. Additional is the \texttt{shapeFile} column, which should point to a shape file. Can be just a name if the shape file is one of the default shapes. See more in \autoref{sec:shape}.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The supplied \texttt{.csv} file should contain several elements as described above. The element type should be supplied, as well as a name of the element. The name is used in the Magpie interface to identify the element in the pulse sequence visualization, as well as in the settings tabs.
+
+An example for a one pulse sequence is given below:
+
+\begin{verbatim}
+name,type,time,amp,phase
+D1,delay,1
+P1,pulse,2.5e-6,100e3,-90
+Acq,FID,1,4096
+\end{verbatim}
+The first column supplies the name of each element, the second the type. Other columns are used to define the starting values of required inputs. The elements defined in this sequence are:
+\begin{itemize}
+\item A delay with name `D1' and default time of 1 s.
+\item A pulse with name `P1' with time 2.5 $\muup$s, amplitude of 100 kHz and pulse phase $-90^\circ$.
+\item An FID detection block called `Acq' with time of 1 s, and 4096 points.
+\end{itemize}
+The resulting sequence is the one displayed in \autoref{sec:inter:pulse}.
+
+An echo sequence can be defined as:
+
+\begin{verbatim}
+name,type,time,amp,phase
+D1,delay,1,,
+P1,pulse,2.5E-06,100000,"[90,270,90,270]"
+t1,delay,0.1,,
+P2,pulse,5E-06,100000,"[90,0,270,180]"
+t2,delay,0.1,,
+Acq,FID,1,4096,
+\end{verbatim}
+Here, we have two pulses and two extra delays. The pulses have a 4 step phase cycle. Note that phase cycles always need to be the same length for all pulse element in the sequence. The phases are defined with respect to the receiver phase, which is always 0, and cannot be phase cycled.
+
+
+\subsection{Shape files}\label{sec:shape}
+Shape files are defined as a text file with a list of float values. Every entry is on a separate row. Each value indicates the relative pulse amplitude at that point. The phase cannot be changed at the moment.
+
+Note that the overall maximum amplitude of the pulse is equal to $\text{amp}_\text{pulse} \cdot \text{amp}_\text{shape}$. It is recommended therefore to set the maximum amplitude in the shape file to $1$, to avoid confusion.
+
+When using the shape, Magpie treats it as a series of pulses. The length of each sub-pulse is set by the total pulse length divided by the number of steps defined in the shape file. Higher resolution pulses can therefore be obtained by supplying a higher resolution shape file. Note that the simulation time will increases by doing this.
+
+
+
 
 \section{Data output}
+Magpie is designed to interface with the \texttt{ssNake} program.\footnote{\url{https://www.ru.nl/science/magneticresonance/software/ssnake/}} The default output is a \texttt{.mat} file in the same style as \texttt{ssNake} saves. The button `Export FID' can be used to save the current dataset.
+
+
 
 \section{Simulation background}
 Magpie uses a classical simulator, so no quantum effects are included. J-couplings are therefore included only as their weak coupling limit, and no coherence between the J-states exists.
+
+MORE TO BE ADDED.
 
 
 \section{Contact}
