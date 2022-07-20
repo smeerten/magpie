@@ -84,6 +84,18 @@ class MainProgram(QtWidgets.QMainWindow):
     def initMenu(self):
         IconDirectory = os.path.dirname(os.path.realpath(__file__)) + os.path.sep + 'Icons' + os.path.sep
         self.menubar = self.menuBar()
+        self.filemenu = QtWidgets.QMenu('&File', self)
+        self.menubar.addMenu(self.filemenu)
+        
+        self.loadSampleAct = self.filemenu.addAction('Load sample', self.loadSample)
+        self.loadSampleAct.setToolTip('Load sample file')
+        
+        self.loadSequenceAct = self.filemenu.addAction('Load pulse sequence', self.loadPulseSeq)
+        self.loadSequenceAct.setToolTip('Load pulse sequence file')
+        
+        self.quitAct = self.filemenu.addAction('&Quit', self.close, QtGui.QKeySequence.Quit)
+        self.quitAct.setToolTip('Close Magpie')
+        
         
         self.helpmenu = QtWidgets.QMenu('Help', self)
         self.menubar.addMenu(self.helpmenu)
