@@ -864,6 +864,8 @@ class SpecPlotFrame(AbstractPlotFrame):
         self.updatekHzAxis()
         
     def updatekHzAxis(self):
+        if self.xmaxlim is None or self.xminlim is None:
+            return
         maxval = (self.xmaxlim * self.ppmHz - self.offset) / 1000
         minval = (self.xminlim * self.ppmHz - self.offset) / 1000
         self.ax2.set_xlim([maxval, minval])
