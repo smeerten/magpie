@@ -1,0 +1,174 @@
+% Copyright 2021-2022 Bas van Meerten and Wouter Franssen
+%
+%This file is part of magpie.
+%
+%magpie is free software: you can redistribute it and/or modify
+%it under the terms of the GNU General Public License as published by
+%the Free Software Foundation, either version 3 of the License, or
+%(at your option) any later version.
+%
+%magpie is distributed in the hope that it will be useful,
+%but WITHOUT ANY WARRANTY; without even the implied warranty of
+%MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%GNU General Public License for more details.
+%
+%You should have received a copy of the GNU General Public License
+%along with magpie. If not, see <http://www.gnu.org/licenses/>.
+
+\documentclass[11pt,a4paper]{article}
+\include{DeStijl}
+
+\usepackage[bitstream-charter]{mathdesign}
+\usepackage[T1]{fontenc}
+\usepackage[protrusion=true,expansion,tracking=true]{microtype}
+\pgfplotsset{compat=1.7,/pgf/number format/1000 sep={}, axis lines*=left,axis line style={gray},every outer x axis line/.append style={-stealth'},every outer y axis line/.append style={-stealth'},tick label style={font=\small},label style={font=\small},legend style={font=\footnotesize}}
+\usepackage{colortbl}
+\usepackage{listings}
+
+
+%Set section font
+\usepackage{sectsty}
+\allsectionsfont{\color{black!70}\fontfamily{SourceSansPro-LF}\selectfont}
+%--------------------
+
+
+%Set toc fonts
+\usepackage{tocloft}
+%\renewcommand\cftchapfont{\fontfamily{SourceSansPro-LF}\bfseries}
+\renewcommand\cfttoctitlefont{\color{black!70}\Huge\fontfamily{SourceSansPro-LF}\bfseries}
+\renewcommand\cftsecfont{\fontfamily{SourceSansPro-LF}\selectfont}
+%\renewcommand\cftchappagefont{\fontfamily{SourceSansPro-LF}\bfseries}
+\renewcommand\cftsecpagefont{\fontfamily{SourceSansPro-LF}\selectfont}
+\renewcommand\cftsubsecfont{\fontfamily{SourceSansPro-LF}\selectfont}
+\renewcommand\cftsubsecpagefont{\fontfamily{SourceSansPro-LF}\selectfont}
+%--------------------
+
+%Define header/foot
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhead[LE,RO]{\fontfamily{SourceSansPro-LF}\selectfont \thepage}
+\fancyhead[LO,RE]{\fontfamily{SourceSansPro-LF}\selectfont \leftmark}
+\fancyfoot[C]{}
+%--------------------
+
+%remove page number from first chapter page
+\makeatletter
+\let\ps@plain\ps@empty
+\makeatother
+%----------------------
+\usepackage{blindtext, color}
+\definecolor{gray75}{gray}{0.75}
+\newcommand{\hsp}{\hspace{20pt}}
+
+
+
+\usepackage[hidelinks,colorlinks,allcolors=blue, pdftitle={The Magpie manual},pdfauthor={W.M.J.\ Franssen}]{hyperref}
+
+\interfootnotelinepenalty=10000 %prevents splitting of footnote over multiple pages
+\linespread{1.2}
+
+%\usepgfplotslibrary{external}%creates all external tikz images that are included.
+%\tikzexternalize[shell escape=-enable-write18]%activate externalization
+%\tikzsetexternalprefix{GeneratedFigures/}
+%\tikzset{external/force remake} %Enable forced remake
+
+
+
+\begin{document}
+%\newgeometry{left=72pt,right=72pt,top=95pt,bottom=95pt,footnotesep=0.5cm}
+\input{Title.tex}
+
+\thispagestyle{empty}
+\newpage
+\mbox{}
+
+%\restoregeometry
+
+\pagenumbering{roman}
+%\pagestyle{empty}
+\renewcommand\cfttoctitlefont{\color{black}\Huge\fontfamily{SourceSansPro-LF}\bfseries}
+\microtypesetup{protrusion=false} % disables protrusion locally in the document
+\setcounter{tocdepth}{2}
+\tableofcontents % prints Table of Contents
+\microtypesetup{protrusion=true} % enables protrusion
+\addtocontents{toc}{\protect\thispagestyle{empty}}
+%\pagestyle{plain}
+
+\renewcommand\cfttoctitlefont{\color{black!70}\Huge\fontfamily{SourceSansPro-LF}\bfseries}
+
+
+\pagenumbering{arabic}
+\section{Introduction}
+In this document, some example exercises for teaching with Magpie are listed. They range from introductory examples for student's first steps in magnetic resonance, and also some studies of more advanced effects.
+
+For each example, the suggested pulse sequence and sample file are listed. Then, a list of actions/steps is listed. It is suggested to embed this in a broader explanation of NMR effects, and how NMR experiments work.
+
+Feel free to use these exercises, or an adaption of them, for your teaching needs. If you have suggestions for additions, do not hesitate to contact us.
+
+\newpage
+
+\section{Basic setup}\label{sec:Basic}
+\textbf{Sample:} \texttt{Ethanol.txt}.
+
+\textbf{Pulse sequence:} \texttt{onePulse.csv}
+
+\subsection{Introduction}
+In this exercise an initial introduction into basic spectrometer setup is given. This guides through all the steps to get a high-quality $^1$H NMR spectum of an ethanol sample.
+
+The topic addressed are:
+\begin{itemize}
+\item Gain
+\item Spectrometer offset
+\item Spectral width
+\item Acquisition time
+\item 90$^\circ$ pulse determination
+\item $T_1$ effects
+\end{itemize}
+
+\subsection{Steps}
+Below is a list of suggested steps to follow.
+
+\begin{itemize}
+\item Record spectrum with default settings. (Optionally adopt the default settings to be less good.)
+\item Examine FID and spectrum.
+\item Optimize gain (single scan maximum at about 0.8 in FID)
+\item Optimize acquisition time.
+\item Optimize offset, to have spectrum centred.
+\item Reduce spectral width to have a nice fitting spectrum. Keep to total acquisition time constant.
+\item Optimize pulse length. Acquire a series of spectra with different pulse lengths (as an array) and determine the signal maximum. A pitfall here could be that the gain was pre-optimize before finding the 90$^\circ$ pulse.
+\end{itemize}
+
+
+\newpage
+
+\section{T1 determination}
+\textbf{Sample:} \texttt{Ethanol.txt}.
+
+\textbf{Pulse sequence:} \texttt{invRecovery.csv} and \texttt{satRecovery.csv}.
+
+\subsection{Introduction}
+Using the optimized settings of \autoref{sec:Basic}, the $T_1$ is determined for the sample. Firstly, it is done using inversion recovery, followed by the repeat of this using saturation recovery. The students should learn the requirement for inversion recovery to wait 3-5 times $T_1$ between scans, before the $T_1$ is established! Then we move to saturation recovery, to show if can be used in a more effective manner. Note that Magpie uses a perfect saturation block, and not a series of pulses. The disadvantage of saturation recovery, especially if the sample $T_2$ approaches the $T_1$ are not taken into account.
+
+The topic addressed are:
+\begin{itemize}
+\item $T_1$ determination using inversion recovery.
+\item (Addition: use composite pulse for inversion.)
+\item $T_1$ determination using saturation recovery.
+\end{itemize}
+
+\subsection{Steps}
+Below is a list of suggested steps to follow.
+
+\begin{itemize}
+\item Load the \texttt{invRecovery.csv} sequence.
+\item Using the optimized setting for ethanol, test the inversion recovery by setting the delay at a low value. This should give an inverted spectrum.
+\item Ste the delay at a large value to show the signal positive again.
+\item Manual try and find the zero crossing.
+\item Set up an array of experiments from short to long recovery times. Analyse this data in ssNake to determine the $T_1$.
+\item Repeat the experiment with a very short recycle delay. How does this impact the recovery curve? How reliable would this analysis be?
+\item With the optimal setting, move to the \texttt{satRecovery.csv} sequence.
+\item Repeat the experiment with the array of the recovery times. Analyse the data in ssNake.
+\item Repeat the experiment with a very short recycle delay. Observe the difference between this fit result and that for the inversion recovery sequence with too short recycle delay.
+\end{itemize}
+
+\end{document}
