@@ -391,11 +391,11 @@ Magpie is designed to interface with the \texttt{ssNake} program.\footnote{\url{
 
 
 \section{Simulation background}
-Magpie uses a classical simulator, so no quantum effects are included. J-couplings are therefore included only as their weak coupling limit, and no coherence between the J-states exists.
+Magpie uses a classical, time-domain simulator (i.e., Bloch based), so no quantum effects are included. J-couplings are therefore included only as their weak coupling limit, and no coherence between the J-states exists.
 
-Firstly, the sample file is processed, and divided in individual spins. J-coupled states are treated as separate spins, with a different Larmor frequency. For example, a spin which couples to a single $^1$H nucleus with a coupling constant of 10 Hz is subdivided in two spins with +5 and -5 Hz Larmor frequency and half the magnetization.
+Firstly, the sample file is processed, and divided in individual spins. J-coupled states are treated as separate spins, with a different Larmor frequency. For example, a spin which couples to a single $^1$H nucleus with a coupling constant of 10 Hz is subdivided in two spins with +5 and -5 Hz Larmor frequency and half the magnitude.
 
-After this is done, we can define each spin with 6 properties:
+After this is done, we can define each 'spin' with 6 properties:
 
 \begin{equation}
   S = \left( \begin{array}{c}
@@ -407,26 +407,46 @@ T_1 \\
 T_2\\
   \end{array} \right) \quad .
 \end{equation}
-The spins start with $M_x == M_y == 0$. The total magnetization, due to the amount of spins of a particular site in a molecule, and the amount of the molecule in the sample, is hold in the $M_0$ value, which is also need to calculate the $T_1$ effects.
+At the start of the pulse sequence, the spins start with $M_x == M_y == 0$.
+The total magnetization in thermal equilibrium, due to the amount of spins of a particular site in a molecule, and the amount of the molecule in the sample, is available in the $M_0$ value.
+This thermal equilibrium magnetization is used to calculate the $T_1$ decay.
 
-With the information per spin, the system changes over time can be calculated using the Bloch equations. This is done by using a ODE solver, for each spin individually. Each spin in analysed in a rotating frame rotating at its Larmor frequency, to improve the accuracy and speed of the ODE solver.
+With the information per spin, the system changes over time can be calculated using the Bloch equations.
+This is done by using a ODE solver, for each spin individually per block in the pulse sequence.
+For blocks where no RF is applied (i.e., during delays or the FID), each spin in propagated in a reference frame rotating at its Larmor frequency, to improve the speed of the ODE solver.
+In that case, the $M_x$ and $M_y$ can be determined from the rotating frame values by a time-dependent phase shift.
 
-The final state after a scan has been calculated becomes the initial state for the next scan. In this way, system history is taken into account, and a proper experiment needs a recovery time of 3-5 times $T_1$ between scans, equalling reality.
+The final $z$ magnetization ($M_Z$) at the end of a scan will be used as the initial state for the next scan.
+In this way, system history is taken into account, and a quantitative experiment needs a recovery time of 3-5 times $T_1$ between scans, equalling reality.
 
-For each element in the pulse sequence, the initial state of the spin is taken, and the final a the end of the sequence element is calculated. Only for the \texttt{FID} element, more intermediate values are calculated, in line with the sampling frequency that is specified in the experimental settings.
+For each element in the pulse sequence, the initial state of the spin is taken, and the final a the end of the sequence element is calculated.
+Only for the \texttt{FID} element, more intermediate values are calculated, in line with the sampling frequency that is specified in the experimental settings.
 
 
 \subsection{T2prime}
-T2prime effects are a collective property relate to the measurement setup of an NMR experiment and the sample being measured. While $T_2$ represent the unrecoverable loss of coherence of a state, T2prim effects describe the loss of coherence due to macroscopic effects. This relates for example to a sample tube in an inhomogeneous magnetic field. Signals will decay faster than the true $T_2$, as the XY-magnetization of spins in different locations in the tube will precess at a different rate. Using a spin echo, for example, the full alignment can be recovered, making it a different process than $T_2$.
+T2prime effects are a collective property relate to the measurement setup of an NMR experiment and the sample being measured.
+While $T_2$ represent the unrecoverable loss of coherence of a state, T2prim effects describe the loss of coherence due to macroscopic effects.
+This relates for example to a sample tube in an inhomogeneous magnetic field.
+Signals will decay faster than the true $T_2$, as the XY-magnetization of spins in different locations in the tube will precess at a different rate.
+Using a spin echo, for example, the full alignment can be recovered, making it a different process than $T_2$.
 
-Magpie can include T2prime effects in its calculations. It does this by creating a series of duplicate spins, at slightly different Larmor frequency. The sum of all these lines in the spectrum follows a Lorentzian shape, and can be seen as the magnetic field profile over the sample. The width of the envelope is calculated based on the supplied T2prime for each spin. The amount of sub-sampled spins is defined by the T2prime value, and the $T_2$ value of the original spin.
+Magpie can include T2prime effects in its calculations.
+It does this by creating a series of duplicate spins, at slightly different Larmor frequency.
+The sum of all these lines in the spectrum follows a Lorentzian shape, and can be seen as the magnetic field profile over the sample.
+The width of the envelope is calculated based on the supplied T2prime for each spin.
+The amount of sub-sampled spins is defined by the T2prime value, and the $T_2$ value of the original spin.
 
 \subsection{Exchange}
+Magpie also supports simulation of two-site exchange.
+Exchanging spin pairs can be defined in the sample file as described in \autoref{sec:sample}.
+To include exchange in the Block equations, both spins are simulated simultaneously with an additional exchange rate parameter $k$.
+One thing to note is that for exchanging spin pairs there is only one rotating frame, which means the speedup is limited.
+So for rapidly exchanging spins which are separated in frequency, the simulation times can start to increase noticeably. 
 
 \section{Contact}
 To contact the \texttt{magpie} team write to \texttt{ssnake@science.ru.nl}.
 
 \bibliographystyle{BibStyle}
-\bibliography{ReferenceManual}
+\bibliography{Manual}
 
 \end{document}

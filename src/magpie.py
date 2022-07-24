@@ -271,11 +271,11 @@ class ParameterFrame(QtWidgets.QTabWidget):
             if par is None:
                 self.main.dispMsg(str(message))
                 return None, None
-            arrayLens = arrayLens | set([arrayLen])
+            arrayLens = arrayLens | {arrayLen}
             pars.append(par)
         if len(arrayLens) == 1:
             return list(arrayLens)[0], pd.DataFrame(pars)
-        arrayLens = arrayLens - set([None])
+        arrayLens = arrayLens - {None}
         if len(arrayLens) == 1:
             return list(arrayLens)[0], pd.DataFrame(pars)
         self.main.dispMsg('Error on loading parameters: arrays not equal in length.')
@@ -364,10 +364,10 @@ class PulseWidget(ParameterWidget):
         else:
             self.pulseStep['amp'] = [1e3*i for i in ampVal]
             arrayLen2 = len(self.pulseStep['amp'])
-        lenSet = set([arrayLen1, arrayLen2])
+        lenSet = {arrayLen1, arrayLen2}
         if len(lenSet) == 1:
             return list(lenSet)[0], self.pulseStep, None
-        lenSet = lenSet - set([None])
+        lenSet = lenSet - {None}
         if len(lenSet) == 1:
             return list(lenSet)[0], self.pulseStep, None
         raise RuntimeError('Differing array lengths not supported')
