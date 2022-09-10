@@ -163,11 +163,11 @@ class MainProgram(QtWidgets.QMainWindow):
 
         if self.arrayLen is None:
             self.arrayLen = 1
-        nuclei, field, offset, gain, self.numScans = self.spectrometerFrame.getSettings()
+        nuclei, decouple, field, offset, gain, self.numScans = self.spectrometerFrame.getSettings()
         if None in [offset, gain]:
             self.stop()
             return          
-        self.simulator.setSettings(field, nuclei, offset, gain)
+        self.simulator.setSettings(field, nuclei, decouple, offset, gain)
         self.simulator.setPulseSeq(parameters)
         self.simulator.reset()
         self.iScan = 0
@@ -902,9 +902,7 @@ class SpectrometerFrame(QtWidgets.QFrame):
         self.detectDrop.addItems(NUCLEI)
         grid.addWidget(self.detectDrop,5,1)
         self.decoupleDrop = QtWidgets.QComboBox()
-        self.decoupleDrop.addItems(NUCLEI)
-        self.decoupleDrop.setEnabled(False)
-        self.decoupleLabel.setEnabled(False)
+        self.decoupleDrop.addItems(['OFF'] + NUCLEI)
         grid.addWidget(self.decoupleDrop,6,1)
 
         grid.addWidget(QtWidgets.QLabel('B<sub>0</sub>:'),7,0)
@@ -969,19 +967,26 @@ class SpectrometerFrame(QtWidgets.QFrame):
             
     def getSettings(self):
         nuclei = self.detectDrop.currentText()
+        decouple = self.decoupleDrop.currentText()
+        if decouple == 'OFF':
+            decouple = None
+        else:
+            decouple = [decouple, 0, 1e5]  # TODO: make the decouple offset and strength available in the menu
         field = self.b0List[self.b0Drop.currentIndex()]
         offset = safeEval(self.offsetInput.text())
         gain = safeEval(self.gainInput.text())
+        if nuclei == decouple :
+            self.main.dispMsg('Decouple and observed nuclei cannot be the same.')
+            return None, None, None, None, None, None
         if offset is None :
             self.main.dispMsg('Error on reading spectrometer offset setting.')
-            return None, None, None, None, None
+            return None, None, None, None, None, None
         if gain is None:
             self.main.dispMsg('Error on reading spectrometer gain setting.')
-            return None, None, None, None, None
-        
+            return None, None, None, None, None, None
         offset *= 1000
         nScans = self.scanBox.value()
-        return nuclei, field, offset, gain, nScans
+        return nuclei, decouple, field, offset, gain, nScans
         
     def upd(self):
         if self.main.sampleName is None:
