@@ -895,15 +895,10 @@ class SpectrometerFrame(QtWidgets.QFrame):
         grid.addWidget(self.sequenceLabel,4,0,1,2)
 
         grid.addWidget(QtWidgets.QLabel('Detect:'),5,0)
-        self.decoupleLabel = QtWidgets.QLabel('Decouple:')
-        grid.addWidget(self.decoupleLabel,6,0)
 
         self.detectDrop = QtWidgets.QComboBox()
         self.detectDrop.addItems(NUCLEI)
         grid.addWidget(self.detectDrop,5,1)
-        self.decoupleDrop = QtWidgets.QComboBox()
-        self.decoupleDrop.addItems(['OFF'] + NUCLEI)
-        grid.addWidget(self.decoupleDrop,6,1)
 
         grid.addWidget(QtWidgets.QLabel('B<sub>0</sub>:'),7,0)
         self.b0Drop = QtWidgets.QComboBox()
@@ -926,14 +921,35 @@ class SpectrometerFrame(QtWidgets.QFrame):
         self.scanBox.setMinimum(1)
         self.scanBox.setMaximum(10000)
         grid.addWidget(self.scanBox,10,1)
+
+        self.decoupleGroup = QtWidgets.QGroupBox("Decouple")
+        self.decoupleGroup.setCheckable(True)
+        self.decoupleGroup.setChecked(False)
+        grid.addWidget(self.decoupleGroup,11,0,1,2)
+        decouplegrid = QtWidgets.QGridLayout()
+        self.decoupleGroup.setLayout(decouplegrid)
+
+        decouplegrid.addWidget(QtWidgets.QLabel('Nuclei:'),0,0)
+
+        self.decoupleDrop = QtWidgets.QComboBox()
+        self.decoupleDrop.addItems(NUCLEI)
+        decouplegrid.addWidget(self.decoupleDrop,0,1)
+
+        decouplegrid.addWidget(QtWidgets.QLabel('Strength [kHz]:'),1,0)
+        self.decStrengthInput = QtWidgets.QLineEdit('1.0')
+        decouplegrid.addWidget(self.decStrengthInput,1,1)
+
+        decouplegrid.addWidget(QtWidgets.QLabel('Offset [kHz]:'),2,0)
+        self.decOffsetInput = QtWidgets.QLineEdit('0.0')
+        decouplegrid.addWidget(self.decOffsetInput,2,1)
         
         self.acquirePush = QtWidgets.QPushButton('Acquire')
         self.acquirePush.clicked.connect(self.main.simulate)
-        grid.addWidget(self.acquirePush,11,0,1,2)
+        grid.addWidget(self.acquirePush,12,0,1,2)
 
         self.stopPush = QtWidgets.QPushButton('Stop')
         self.stopPush.clicked.connect(self.main.stop)
-        grid.addWidget(self.stopPush,11,0,1,2)
+        grid.addWidget(self.stopPush,12,0,1,2)
         self.stopPush.setVisible(False)
         
         #grid.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
@@ -967,15 +983,19 @@ class SpectrometerFrame(QtWidgets.QFrame):
             
     def getSettings(self):
         nuclei = self.detectDrop.currentText()
-        decouple = self.decoupleDrop.currentText()
-        if decouple == 'OFF':
+        decouple = self.decoupleGroup.isChecked()
+        if not decouple:
+            decoupleNuclei = None
             decouple = None
         else:
-            decouple = [decouple, 0, 1e5]  # TODO: make the decouple offset and strength available in the menu
+            decoupleNuclei = self.decoupleDrop.currentText()
+            decoupleStrength = safeEval(self.decStrengthInput.text())
+            decoupleOffset = safeEval(self.decOffsetInput.text())
+            decouple = [decoupleNuclei, decoupleOffset*1e3, decoupleStrength*1e3]  # TODO: make the decouple offset and strength available in the menu
         field = self.b0List[self.b0Drop.currentIndex()]
         offset = safeEval(self.offsetInput.text())
         gain = safeEval(self.gainInput.text())
-        if nuclei == decouple :
+        if nuclei == decoupleNuclei:
             self.main.dispMsg('Decouple and observed nuclei cannot be the same.')
             return None, None, None, None, None, None
         if offset is None :

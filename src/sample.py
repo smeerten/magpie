@@ -74,6 +74,7 @@ def scaleScalarCouplings(J,spins,decouple,B0):
             offset = decouple[1] - shift
             scale = np.cos(np.arctan(decouple[2]/offset))
             # Scale row and column of Jmatrix with this value
+            J = np.copy(J)
             J[pos,:] = J[pos,:] * scale
             J[:,pos] = J[pos,:] * scale
     return J
@@ -321,6 +322,8 @@ def loadSampleFile(loc):
                             relax.append(None)
                         else:
                             relax.append(float(val))
+                else:
+                    raise ValueError("spins should either have 3 or 6 parameters specified")
                 shift = float(shift)
                 multi = int(multi)
                 molecule['spins'].append([iso,shift,multi,relax])

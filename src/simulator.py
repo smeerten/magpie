@@ -128,12 +128,11 @@ class Simulator():
             self.settings['B0'] = field
         if nuclei is not None:
             self.settings['observe'] = nuclei
-        if decouple is not None:
-            self.settings['decouple'] = decouple                
         if offset is not None:
             self.settings['offset'] = offset
         if gain is not None:
             self.settings['gain'] = gain
+        self.settings['decouple'] = decouple                
         
     def setSample(self, sample):
         self.sample = sample

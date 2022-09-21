@@ -1,0 +1,14 @@
+###SAMPLE###
+amount 100
+###MOLECULE###
+amount 1 
+T1 5
+T2 1
+T2prime 10
+spin 1H 1.224 3
+spin 1H 3.692 2
+spin 1H 2.605 1 _ 0.01 0.1
+spin 13C 18.1 1 _ _ _
+J 1 2 7
+J 1 4 125
+
