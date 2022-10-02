@@ -341,6 +341,8 @@ def loadSampleFile(loc):
                 amp = [int0, int1]
                 amp = [float(i) if i != '_' else None for i in amp]
                 shift0, shift1, k = float(shift0), float(shift1), float(k)
+                if iso not in ISOTOPES or iso.startswith('-'):
+                    raise Exception('Unknown isotope in spin declaration.')
                 molecule['pairs'].append([iso, shift0, shift1] + amp + [relax, k])
             elif elem.startswith('J '):
                 spin1, spin2, Jval = elem.split()[1:]
