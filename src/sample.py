@@ -21,6 +21,11 @@ import numpy as np
 import helperFunctions as helpFie
 from safeEval import safeEval
 
+
+import loadIsotopes
+
+ISOTOPES = loadIsotopes.getIsotopes('IsotopeProperties')
+
 def getSplittingPattern(I,Multi):
     Kernel = np.ones((int(2*I+1)))
     IntenFull = [1]
@@ -326,6 +331,8 @@ def loadSampleFile(loc):
                     raise ValueError("spins should either have 3 or 6 parameters specified")
                 shift = float(shift)
                 multi = int(multi)
+                if iso not in ISOTOPES or iso.startswith('-'):
+                    raise Exception('Unknown isotope in spin declaration.')
                 molecule['spins'].append([iso,shift,multi,relax])
             elif elem.startswith('pair '):
                 iso, shift0, shift1, k, int0, int1, T1_0, T1_1, T2_0, T2_1 = elem.split()[1:]
